@@ -14,6 +14,7 @@ import com.kanade.backend.model.entity.UserSign;
 import com.kanade.backend.model.vo.UserLoginVO;
 import com.kanade.backend.model.vo.UserVO;
 import com.kanade.backend.service.UserService;
+import com.kanade.backend.utils.DeviceUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
@@ -102,7 +103,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!user.getPassword().equals(md5DigestAsHex)){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"user is not exist or password is wrong");
         }
-        StpUtil.login(user.getId());
+        StpUtil.login(user.getId(), DeviceUtil.getRequestDevice(request));
         StpUtil.getSession().set(USER_LOGIN_STATE,user);
         // request.getSession().setAttribute(USER_LOGIN_STATE,user);
         return this.getLoginUserVO(user);
