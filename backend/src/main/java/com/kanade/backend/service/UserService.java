@@ -1,6 +1,7 @@
 package com.kanade.backend.service;
 
 import com.kanade.backend.model.dto.UserLoginDTO;
+import com.kanade.backend.model.dto.UserRegisterByEmailDTO;
 import com.kanade.backend.model.dto.UserRegisterDTO;
 import com.kanade.backend.model.entity.User;
 import com.kanade.backend.model.vo.UserLoginVO;
@@ -23,4 +24,8 @@ public interface UserService extends IService<User> {
     boolean logout(HttpServletRequest request);
 
     UserVO getUserVOById(User user);
+
+    UserLoginVO loginByEmail(String email,HttpServletRequest request);
+
+    User registerByEmail(UserRegisterByEmailDTO user);
 }

@@ -8,6 +8,7 @@ import com.kanade.backend.exception.ErrorCode;
 import com.kanade.backend.exception.ThrowUtils;
 import com.kanade.backend.mapper.UserMapper;
 import com.kanade.backend.model.dto.UserLoginDTO;
+import com.kanade.backend.model.dto.UserRegisterByEmailDTO;
 import com.kanade.backend.model.dto.UserRegisterDTO;
 import com.kanade.backend.model.entity.User;
 import com.kanade.backend.model.entity.UserSign;
@@ -73,6 +74,46 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public User registerByEmail(UserRegisterByEmailDTO user) {
+        if (StrUtil.isBlank(user.getUserPassword())|| StrUtil.isBlank(user.getUserName())||StrUtil.isBlank(user.getCheckUserPassword())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        if (user.getUserName().length() < 3 || user.getUserName().length() > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户名长度必须在 3-20 位之间");
+        }
+
+        if (user.getUserPassword().length() < 6 || user.getUserPassword().length() > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度必须在 6-20 位之间");
+        }
+
+        if (!user.getUserPassword().equals(user.getCheckUserPassword())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
+        }
+
+        QueryWrapper queryWrapper = new QueryWrapper();
+        queryWrapper.eq("username",user.getUserName());
+
+        long count = this.mapper.selectCountByQuery(queryWrapper);
+        if (count > 0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"username 重复");
+        }
+
+        String md5DigestAsHex = DigestUtils.md5DigestAsHex(user.getUserPassword().getBytes());
+
+        User user1 = new User();
+        user1.setUsername(user.getUserName());
+        user1.setPassword(md5DigestAsHex);
+        user1.setNickname(user.getUserName());
+        user1.setEmail(user.getEmail());
+        boolean saved = this.save(user1);
+        if (!saved) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "db fail to save");
+        }
+        log.info("user{} is saved in database",user1.getUsername());
+        return user1;
+    }
+    @Override
     public UserLoginVO getLoginUserVO(User user) {
         if (user == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -110,6 +151,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
+    public UserLoginVO loginByEmail(String email,HttpServletRequest request) {
+        QueryWrapper queryWrapper = new QueryWrapper();
+        queryWrapper.eq("email",email);
+        User user = this.mapper.selectOneByQuery(queryWrapper);
+
+        if (user == null){
+            throw new RuntimeException("该邮箱未认证");
+        }
+        StpUtil.login(user.getId(), DeviceUtil.getRequestDevice(request));
+        StpUtil.getSession().set(USER_LOGIN_STATE,user);
+        return this.getLoginUserVO(user);
+    }
+
+
+
+    @Override
     public User getUserLoginInfo(HttpServletRequest request) {
         Object loginUserId = StpUtil.getLoginIdDefaultNull();
         if (loginUserId == null){
@@ -145,4 +202,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         return userVO;
     }
+
+
+
+
 }
