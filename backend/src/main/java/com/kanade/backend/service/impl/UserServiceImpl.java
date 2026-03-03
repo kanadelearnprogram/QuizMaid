@@ -1,5 +1,7 @@
 package com.kanade.backend.service.impl;
 
+import cn.dev33.satoken.stp.SaTokenInfo;
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.util.StrUtil;
 import com.kanade.backend.exception.BusinessException;
 import com.kanade.backend.exception.ErrorCode;
@@ -10,6 +12,7 @@ import com.kanade.backend.model.dto.UserRegisterDTO;
 import com.kanade.backend.model.entity.User;
 import com.kanade.backend.model.entity.UserSign;
 import com.kanade.backend.model.vo.UserLoginVO;
+import com.kanade.backend.model.vo.UserVO;
 import com.kanade.backend.service.UserService;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -18,6 +21,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+
+import java.io.Serializable;
+
 import static com.kanade.backend.common.Constant.USER_LOGIN_STATE;
 
 @Service
@@ -58,7 +64,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setPassword(md5DigestAsHex);
         user.setNickname(userRegisterDTO.getUserName());
         boolean saved = this.save(user);
-        if (saved) {
+        if (!saved) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "db fail to save");
         }
         log.info("user{} is saved in database",user.getUsername());
@@ -82,21 +88,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         ThrowUtils.throwIf(StrUtil.isBlank(userLoginDTO.getUsername()),ErrorCode.PARAMS_ERROR);
 
         String md5DigestAsHex = DigestUtils.md5DigestAsHex(userLoginDTO.getUserPassword().getBytes());
-        QueryWrapper queryWrapper = new QueryWrapper();
-        queryWrapper.eq("password",md5DigestAsHex);
 
-        User user = this.mapper.selectOneByQuery(queryWrapper);
+        /*QueryWrapper queryWrapper = new QueryWrapper();
+        queryWrapper.eq("password",md5DigestAsHex);*/
+
+        QueryWrapper queryWrapper1 = new QueryWrapper();
+        queryWrapper1.eq("username",userLoginDTO.getUsername());
+
+        User user = this.mapper.selectOneByQuery(queryWrapper1);
         if (user == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"user is not exist or password is wrong");
         }
-
-        request.getSession().setAttribute(USER_LOGIN_STATE,user);
-        return null;
+        if (!user.getPassword().equals(md5DigestAsHex)){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"user is not exist or password is wrong");
+        }
+        StpUtil.login(user.getId());
+        StpUtil.getSession().set(USER_LOGIN_STATE,user);
+        // request.getSession().setAttribute(USER_LOGIN_STATE,user);
+        return this.getLoginUserVO(user);
     }
 
     @Override
     public User getUserLoginInfo(HttpServletRequest request) {
-        User current = (User) request.getSession().getAttribute(USER_LOGIN_STATE);
+        Object loginUserId = StpUtil.getLoginIdDefaultNull();
+        if (loginUserId == null){
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        User current = this.getById((Serializable) loginUserId);
 
         if (current == null || current.getId() == null){
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
@@ -111,7 +129,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"not login");
         }
+        StpUtil.logout();
         request.getSession().removeAttribute(USER_LOGIN_STATE);
         return true;
+    }
+
+    @Override
+    public UserVO getUserVOById(User user) {
+        if (user == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        UserVO userVO = new UserVO();
+        BeanUtils.copyProperties(user,userVO);
+
+        return userVO;
     }
 }

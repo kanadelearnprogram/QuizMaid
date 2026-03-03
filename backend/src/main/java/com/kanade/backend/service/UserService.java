@@ -4,6 +4,7 @@ import com.kanade.backend.model.dto.UserLoginDTO;
 import com.kanade.backend.model.dto.UserRegisterDTO;
 import com.kanade.backend.model.entity.User;
 import com.kanade.backend.model.vo.UserLoginVO;
+import com.kanade.backend.model.vo.UserVO;
 import com.mybatisflex.core.service.IService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
@@ -20,4 +21,6 @@ public interface UserService extends IService<User> {
     User getUserLoginInfo(HttpServletRequest request);
 
     boolean logout(HttpServletRequest request);
+
+    UserVO getUserVOById(User user);
 }
