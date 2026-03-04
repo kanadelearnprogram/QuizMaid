@@ -1,28 +1,16 @@
-package com.kanade.backend.model.vo;
+package com.kanade.backend.model.dto;
 
-import com.mybatisflex.annotation.Column;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 @Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class UserVO {
+public class UserUpdateByAdminDTO {
     private Long id;
 
     /**
      * 登录账号
      */
     private String username;
-
-    /**
-     * BCrypt加密密码
-     */
-
 
     /**
      * 昵称
@@ -45,18 +33,6 @@ public class UserVO {
     private Integer emailVerified;
 
     /**
-     * 第三方登录类型(gitee/github等)
-     */
-
-    private String oauthType;
-
-    /**
-     * 第三方openid
-     */
-
-    private String oauthOpenid;
-
-    /**
      * 账号状态 1-正常 0-禁用
      */
     private Integer status;
@@ -72,8 +48,4 @@ public class UserVO {
      */
     private Integer correctNum;
 
-
-    private LocalDateTime createTime;
-
-    private LocalDateTime updateTime;
 }

@@ -2,12 +2,14 @@ package com.kanade.backend.service.impl;
 
 import cn.dev33.satoken.stp.SaTokenInfo;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.kanade.backend.exception.BusinessException;
 import com.kanade.backend.exception.ErrorCode;
 import com.kanade.backend.exception.ThrowUtils;
 import com.kanade.backend.mapper.UserMapper;
 import com.kanade.backend.model.dto.UserLoginDTO;
+import com.kanade.backend.model.dto.UserQueryDTO;
 import com.kanade.backend.model.dto.UserRegisterByEmailDTO;
 import com.kanade.backend.model.dto.UserRegisterDTO;
 import com.kanade.backend.model.entity.User;
@@ -20,11 +22,15 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.kanade.backend.common.Constant.USER_LOGIN_STATE;
 
@@ -106,6 +112,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user1.setPassword(md5DigestAsHex);
         user1.setNickname(user.getUserName());
         user1.setEmail(user.getEmail());
+        user1.setEmailVerified(1);
         boolean saved = this.save(user1);
         if (!saved) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "db fail to save");
@@ -113,6 +120,46 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         log.info("user{} is saved in database",user1.getUsername());
         return user1;
     }
+
+    @Override
+    public QueryWrapper getQueryWrapper(UserQueryDTO userQueryDTO) {
+        if (userQueryDTO == null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"query is null");
+        }
+        QueryWrapper queryWrapper = QueryWrapper.create()
+                //.eq("id",userQueryDTO.getId())
+                .like("username",userQueryDTO.getUsername())
+                .like("nickname",userQueryDTO.getNickname())
+                ;
+
+        // 只有当role不为空时才添加role查询条件
+        if (StringUtils.isNotBlank(userQueryDTO.getRole())) {
+            queryWrapper.eq("role",userQueryDTO.getRole());
+        }
+
+        // 只有当sortField不为空时才添加排序条件，并且需要转换字段名
+        if (StringUtils.isNotBlank(userQueryDTO.getSortField())) {
+            String sortField = userQueryDTO.getSortField();
+            // 将驼峰命名转换为下划线命名，如createAt -> created_at
+            if ("createAt".equals(sortField)) {
+                sortField = "createTime";
+            } else if ("updateAt".equals(sortField)) {
+                sortField = "updateTime";
+            }
+            queryWrapper.orderBy(sortField,"ascend".equals(userQueryDTO.getSortOrder()));
+        }
+
+        return queryWrapper;
+    }
+
+    @Override
+    public List<UserVO> getUserVOList(List<User> userList) {
+        if (CollUtil.isEmpty(userList)) {
+            return new ArrayList<>();
+        }
+        return userList.stream().map(this::getUserVO).collect(Collectors.toList());
+    }
+
     @Override
     public UserLoginVO getLoginUserVO(User user) {
         if (user == null){
@@ -193,7 +240,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public UserVO getUserVOById(User user) {
+    public UserVO getUserVO(User user) {
         if (user == null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -204,6 +251,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
 
+    public User getByOauth(String oauthType, String oauthOpenid) {
 
+        QueryWrapper wrapper = new QueryWrapper();
+        // 匹配你的表字段：oauthType / oauthOpenid / isDeleted
+        wrapper.eq("oauthType", oauthType);
+        wrapper.eq("oauthOpenid", oauthOpenid);
+        wrapper.eq("isDeleted", 0);
+
+        // MP 自带方法，直接查询
+        return getOne(wrapper);
+
+    }
 
 }
