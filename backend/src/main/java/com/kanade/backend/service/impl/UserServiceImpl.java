@@ -112,6 +112,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user1.setPassword(md5DigestAsHex);
         user1.setNickname(user.getUserName());
         user1.setEmail(user.getEmail());
+        user1.setEmailVerified(1);
         boolean saved = this.save(user1);
         if (!saved) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "db fail to save");

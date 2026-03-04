@@ -86,6 +86,7 @@ public class UserController {
         return null;
     }
 
+
     // 邮箱注册登录
     @PostMapping("/send")
     public BaseResponse<String> sendEmail(String email){
@@ -195,7 +196,6 @@ public class UserController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户ID不能为空");
         }
 
-        // ========== 核心：手动构建实体，只赋值有效值，空字符串直接忽略 ==========
         User user = new User();
         user.setId(id);
 
@@ -286,5 +286,46 @@ public class UserController {
         return ResultUtils.success(userVOPage);
     }
 
+    // 密码重置
+    @PostMapping("/resetpassword")
+    public BaseResponse<String> resetPassword(@RequestBody ResetPasswordDTO resetPasswordDTO ){
+        // 检查是否绑定邮箱
+
+        long loginId = StpUtil.getLoginIdAsLong();
+        User user = userService.getById(loginId);
+        ThrowUtils.throwIf(user.getEmailVerified() == 0,ErrorCode.PARAMS_ERROR,"未绑定邮箱");
+
+        // 验证码校验
+        String code = redisTemplate.opsForValue().get(EMAIL_VERIFY_CODE + resetPasswordDTO.getEmail());
+        ThrowUtils.throwIf(!code.equals(resetPasswordDTO.getCode()),ErrorCode.PARAMS_ERROR,"验证码错误");
+
+        user.setPassword(DigestUtils.md5DigestAsHex(resetPasswordDTO.getPassword().getBytes()));
+        boolean updateById = userService.updateById(user);
+        ThrowUtils.throwIf(!updateById,ErrorCode.PARAMS_ERROR);
+        // 重新登录
+        StpUtil.logout();
+
+        return ResultUtils.success("重置成功,请重新登录");
+    }
+
+    // 绑定邮箱
+    @PostMapping("/bindemail")
+    public BaseResponse<UserVO> bindEmail(@RequestBody BindEmailDTO bindEmailDTO) {
+        long loginId =  StpUtil.getLoginIdAsLong();
+        User user = userService.getById(loginId);
+
+        // 验证码校验
+        String code = redisTemplate.opsForValue().get(EMAIL_VERIFY_CODE + bindEmailDTO.getEmail());
+        ThrowUtils.throwIf(!code.equals(bindEmailDTO.getCode()),ErrorCode.PARAMS_ERROR,"验证码错误");
+        // 设定邮箱
+        user.setEmail(bindEmailDTO.getEmail());
+        user.setEmailVerified(1);
+        boolean updateById = userService.updateById(user);
+        ThrowUtils.throwIf(!updateById,ErrorCode.PARAMS_ERROR);
+
+        user = userService.getById(loginId);
+
+        return ResultUtils.success(userService.getUserVO(user));
+    }
 }
 
