@@ -1,107 +1,4 @@
 declare namespace API {
-  type ApplicationContext = {
-    parent?: ApplicationContext
-    id?: string
-    displayName?: string
-    applicationName?: string
-    startupDate?: number
-    autowireCapableBeanFactory?: AutowireCapableBeanFactory
-    environment?: Environment
-    beanDefinitionNames?: string[]
-    beanDefinitionCount?: number
-    parentBeanFactory?: BeanFactory
-    classLoader?: {
-      name?: string
-      registeredAsParallelCapable?: boolean
-      parent?: {
-        name?: string
-        registeredAsParallelCapable?: boolean
-        unnamedModule?: {
-          name?: string
-          classLoader?: {
-            name?: string
-            registeredAsParallelCapable?: boolean
-            definedPackages?: {
-              name?: string
-              annotations?: Record<string, any>[]
-              declaredAnnotations?: Record<string, any>[]
-              sealed?: boolean
-              specificationTitle?: string
-              specificationVersion?: string
-              specificationVendor?: string
-              implementationTitle?: string
-              implementationVersion?: string
-              implementationVendor?: string
-            }[]
-            defaultAssertionStatus?: boolean
-          }
-          descriptor?: { open?: boolean; automatic?: boolean }
-          named?: boolean
-          annotations?: Record<string, any>[]
-          declaredAnnotations?: Record<string, any>[]
-          packages?: string[]
-          nativeAccessEnabled?: boolean
-          layer?: Record<string, any>
-        }
-        definedPackages?: {
-          name?: string
-          annotations?: Record<string, any>[]
-          declaredAnnotations?: Record<string, any>[]
-          sealed?: boolean
-          specificationTitle?: string
-          specificationVersion?: string
-          specificationVendor?: string
-          implementationTitle?: string
-          implementationVersion?: string
-          implementationVendor?: string
-        }[]
-        defaultAssertionStatus?: boolean
-      }
-      unnamedModule?: {
-        name?: string
-        classLoader?: {
-          name?: string
-          registeredAsParallelCapable?: boolean
-          definedPackages?: {
-            name?: string
-            annotations?: Record<string, any>[]
-            declaredAnnotations?: Record<string, any>[]
-            sealed?: boolean
-            specificationTitle?: string
-            specificationVersion?: string
-            specificationVendor?: string
-            implementationTitle?: string
-            implementationVersion?: string
-            implementationVendor?: string
-          }[]
-          defaultAssertionStatus?: boolean
-        }
-        descriptor?: { open?: boolean; automatic?: boolean }
-        named?: boolean
-        annotations?: Record<string, any>[]
-        declaredAnnotations?: Record<string, any>[]
-        packages?: string[]
-        nativeAccessEnabled?: boolean
-        layer?: Record<string, any>
-      }
-      definedPackages?: {
-        name?: string
-        annotations?: Record<string, any>[]
-        declaredAnnotations?: Record<string, any>[]
-        sealed?: boolean
-        specificationTitle?: string
-        specificationVersion?: string
-        specificationVendor?: string
-        implementationTitle?: string
-        implementationVersion?: string
-        implementationVendor?: string
-      }[]
-      defaultAssertionStatus?: boolean
-    }
-  }
-
-  type AutowireCapableBeanFactory = true
-
   type BaseResponseBoolean = {
     code?: number
     data?: boolean
@@ -162,8 +59,6 @@ declare namespace API {
     message?: string
   }
 
-  type BeanFactory = true
-
   type BindEmailDTO = {
     email?: string
     code?: string
@@ -175,19 +70,6 @@ declare namespace API {
 
   type DeleteRequest = {
     id?: number
-  }
-
-  type Environment = {
-    defaultProfiles?: string[]
-    activeProfiles?: string[]
-  }
-
-  type FilterRegistration = {
-    urlPatternMappings?: string[]
-    servletNameMappings?: string[]
-    initParameters?: Record<string, any>
-    name?: string
-    className?: string
   }
 
   type getSignInDaysParams = {
@@ -206,36 +88,6 @@ declare namespace API {
     id: number
   }
 
-  type HttpStatusCode = {
-    is2xxSuccessful?: boolean
-    is4xxClientError?: boolean
-    is5xxServerError?: boolean
-    is1xxInformational?: boolean
-    is3xxRedirection?: boolean
-    error?: boolean
-  }
-
-  type JspConfigDescriptor = {
-    taglibs?: TaglibDescriptor[]
-    jspPropertyGroups?: JspPropertyGroupDescriptor[]
-  }
-
-  type JspPropertyGroupDescriptor = {
-    defaultContentType?: string
-    urlPatterns?: string[]
-    deferredSyntaxAllowedAsLiteral?: string
-    trimDirectiveWhitespaces?: string
-    errorOnUndeclaredNamespace?: string
-    isXml?: string
-    errorOnELNotFound?: string
-    scriptingInvalid?: string
-    elIgnored?: string
-    includePreludes?: string[]
-    pageEncoding?: string
-    includeCodas?: string[]
-    buffer?: string
-  }
-
   type PageUserVO = {
     records?: UserVO[]
     pageNumber?: number
@@ -243,32 +95,6 @@ declare namespace API {
     totalPage?: number
     totalRow?: number
     optimizeCountQuery?: boolean
-  }
-
-  type RedirectView = {
-    applicationContext?: ApplicationContext
-    servletContext?: ServletContext
-    contentType?: string
-    requestContextAttribute?: string
-    staticAttributes?: Record<string, any>
-    exposePathVariables?: boolean
-    exposeContextBeansAsAttributes?: boolean
-    exposedContextBeanNames?: string[]
-    beanName?: string
-    url?: string
-    contextRelative?: boolean
-    http10Compatible?: boolean
-    exposeModelAttributes?: boolean
-    encodingScheme?: string
-    statusCode?: HttpStatusCode
-    expandUriTemplateVariables?: boolean
-    propagateQueryParams?: boolean
-    hosts?: string[]
-    redirectView?: boolean
-    propagateQueryProperties?: boolean
-    attributesMap?: Record<string, any>
-    attributesCSV?: string
-    attributes?: Record<string, any>
   }
 
   type ResetPasswordDTO = {
@@ -279,70 +105,6 @@ declare namespace API {
 
   type sendEmailParams = {
     email: string
-  }
-
-  type ServletContext = {
-    initParameterNames?: Record<string, any>
-    contextPath?: string
-    virtualServerName?: string
-    sessionCookieConfig?: SessionCookieConfig
-    sessionTimeout?: number
-    serverInfo?: string
-    defaultSessionTrackingModes?: ('COOKIE' | 'URL' | 'SSL')[]
-    effectiveSessionTrackingModes?: ('COOKIE' | 'URL' | 'SSL')[]
-    requestCharacterEncoding?: string
-    responseCharacterEncoding?: string
-    sessionTrackingModes?: ('COOKIE' | 'URL' | 'SSL')[]
-    effectiveMinorVersion?: number
-    servletRegistrations?: Record<string, any>
-    filterRegistrations?: Record<string, any>
-    jspConfigDescriptor?: JspConfigDescriptor
-    servletContextName?: string
-    effectiveMajorVersion?: number
-    classLoader?: {
-      name?: string
-      registeredAsParallelCapable?: boolean
-      definedPackages?: {
-        name?: string
-        annotations?: Record<string, any>[]
-        declaredAnnotations?: Record<string, any>[]
-        sealed?: boolean
-        specificationTitle?: string
-        specificationVersion?: string
-        specificationVendor?: string
-        implementationTitle?: string
-        implementationVersion?: string
-        implementationVendor?: string
-      }[]
-      defaultAssertionStatus?: boolean
-    }
-    majorVersion?: number
-    minorVersion?: number
-    attributeNames?: Record<string, any>
-  }
-
-  type ServletRegistration = {
-    mappings?: string[]
-    runAsRole?: string
-    initParameters?: Record<string, any>
-    name?: string
-    className?: string
-  }
-
-  type SessionCookieConfig = {
-    secure?: boolean
-    httpOnly?: boolean
-    domain?: string
-    path?: string
-    maxAge?: number
-    name?: string
-    attributes?: Record<string, any>
-    comment?: string
-  }
-
-  type TaglibDescriptor = {
-    taglibURI?: string
-    taglibLocation?: string
   }
 
   type User = {

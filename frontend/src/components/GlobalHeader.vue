@@ -9,8 +9,8 @@
     <div class="header-right">
       <a-dropdown>
         <div class="user-info">
-          <a-avatar :size="32">{{ loginUser.loginUser?.username?.charAt(0) || 'U' }}</a-avatar>
-          <span class="nickname">{{ loginUser.loginUser?.username || '用户' }}</span>
+          <a-avatar :size="32">{{ loginUser.loginUser?.nickname?.charAt(0) || 'U' }}</a-avatar>
+          <span class="nickname">{{ loginUser.loginUser?.nickname || '用户' }}</span>
         </div>
         <template #overlay>
           <a-menu>

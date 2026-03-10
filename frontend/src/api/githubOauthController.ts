@@ -19,7 +19,7 @@ export async function callback(
 
 /** 此处后端没有提供注释 GET /oauth/github/login */
 export async function githubLogin(options?: { [key: string]: any }) {
-  return request<API.RedirectView>('/oauth/github/login', {
+  return request<API.BaseResponseString>('/oauth/github/login', {
     method: 'GET',
     ...(options || {}),
   })

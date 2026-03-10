@@ -15,23 +15,31 @@
        >
          <a-input-password v-model:value="formState.userPassword" placeholder="请输入密码" />
        </a-form-item>
-       <div class="tips">
-         没有账号？
-         <a href="/user/register">去注册</a>
-       </div>
-       <a-form-item>
-         <a-button type="primary" html-type="submit" style="width: 100%">登录</a-button>
-       </a-form-item>
+       <div class="extra-row">
+        <div class="github-login" @click="handleGithubLogin">
+          <github-outlined class="github-icon" />
+          <span>GitHub登录</span>
+        </div>
+        <div class="tips">
+          没有账号？
+          <a href="/user/register">去注册</a>
+        </div>
+      </div>
+      <a-form-item>
+        <a-button type="primary" html-type="submit" style="width: 100%">登录</a-button>
+      </a-form-item>
      </a-form>
    </div>
  </template>
 
  <script setup lang="ts">
- import { reactive } from 'vue'
- import { useRouter } from 'vue-router'
- import { message } from 'ant-design-vue'
- import { login } from '@/api/userController'
- import { useLoginUserStore } from '@/stores/loginUser'
+import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import { GithubOutlined } from '@ant-design/icons-vue'
+import { login } from '@/api/userController'
+import { githubLogin } from '@/api/githubOauthController'
+import { useLoginUserStore } from '@/stores/loginUser'
 
  const router = useRouter()
  const loginUserStore = useLoginUserStore()
@@ -53,6 +61,19 @@
      }
    } catch (error) {
      message.error('登录请求失败')
+   }
+ }
+
+ const handleGithubLogin = async () => {
+   try {
+     const res = await githubLogin()
+     if (res.data.code === 0 && res.data.data) {
+       window.location.href = res.data.data
+     } else {
+       message.error('GitHub登录失败：' + res.data.message)
+     }
+   } catch (error) {
+     message.error('GitHub登录请求失败')
    }
  }
  </script>
@@ -80,9 +101,32 @@
    margin-bottom: 24px;
  }
 
- .tips {
-   text-align: right;
+ .extra-row {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
    margin-bottom: 24px;
+ }
+
+ .github-login {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+   cursor: pointer;
+   font-size: 14px;
+   color: #666;
+   transition: color 0.3s;
+ }
+
+ .github-login:hover {
+   color: #1890ff;
+ }
+
+ .github-icon {
+   font-size: 18px;
+ }
+
+ .tips {
    font-size: 14px;
    color: #666;
  }

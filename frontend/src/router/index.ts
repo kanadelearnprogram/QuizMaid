@@ -11,6 +11,10 @@ const routes = [
     component: () => import("@/views/UserRegister.vue")
   },
   {
+    path: "/oauth/github/callback",
+    component: () => import("@/views/GithubCallback.vue")
+  },
+  {
     path: "/",
     component: BasicLayout,
     children: [
