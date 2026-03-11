@@ -24,6 +24,8 @@ import org.springframework.web.servlet.view.RedirectView;
 
 import java.util.HashMap;
 
+import static com.kanade.backend.common.Constant.USER_LOGIN_STATE;
+
 @RestController
 @RequestMapping("/oauth")
 @Slf4j
@@ -39,11 +41,11 @@ public class GithubOauthController {
 
     // 1. 前端访问此接口：跳转到 GitHub 授权页 http://127.0.0.1:8080/api/oauth/github/login
     @GetMapping("/github/login")
-    public RedirectView githubLogin() {
+    public BaseResponse<String> githubLogin() {
         String url = "https://github.com/login/oauth/authorize" +
                 "?client_id=" + clientId +
                 "&redirect_uri=" + redirectUri ;
-        return new RedirectView(url);
+        return ResultUtils.success(url);
     }
 
     // 2. GitHub 授权回调地址（自动执行，无需手动访问）
@@ -95,6 +97,8 @@ public class GithubOauthController {
 
             // ========== 4. Sa-Token 登录 ==========
             StpUtil.login(user.getId());
+            // fix 无法退出登录
+            StpUtil.getSession().set(USER_LOGIN_STATE,user);
             String token = StpUtil.getTokenValue();
 
             // ========== 5. 组装返回值（无序列化报错） ==========
