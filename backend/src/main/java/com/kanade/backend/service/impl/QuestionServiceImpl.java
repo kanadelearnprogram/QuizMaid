@@ -1,6 +1,7 @@
 package com.kanade.backend.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
@@ -24,7 +25,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -72,14 +75,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         question.setCreatorId(StpUtil.getLoginIdAsLong());
         question.setStatus(question.getStatus() == null ? 1 : question.getStatus());
 
-        if(question.getTags() == null || question.getKnowledgePoints() == null){
-            LabelResult labelResult = AiServiceFactory.getAiService(TaskEnum.LABEL).generateQuestionLabel(question.toString());
-            question.setTags(JSONUtil.toJsonStr(labelResult.getTags()));
-            question.setKnowledgePoints(labelResult.getKnowledgePoints());
-            question.setChapter(labelResult.getChapter());
-            question.setSubject(labelResult.getSubject());
-            question.setDifficulty(labelResult.getDifficult());
-        }
+
 
         this.save(question);
 
@@ -186,6 +182,41 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         return this.updateById(question);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<Long> batchAddQuestion(List<Question> questionList) {
+
+        // 最终返回的ID集合
+        List<Long> resultIdList = new ArrayList<>();
+        // 需要批量插入的新试题
+        List<Question> needInsertList = new ArrayList<>();
+
+        for (Question question : questionList) {
+            Long recoveredId = processQuestion(question);
+            if (recoveredId != null) {
+                // 已恢复数据，直接加入结果
+                resultIdList.add(recoveredId);
+            } else {
+                // 新数据，加入批量插入列表
+                needInsertList.add(question);
+                resultIdList.add(null);
+            }
+        }
+
+        if (CollUtil.isNotEmpty(needInsertList)) {
+            this.saveBatch(needInsertList);
+        }
+
+        int insertIndex = 0;
+        for (int i = 0; i < resultIdList.size(); i++) {
+            if (resultIdList.get(i) == null) {
+                resultIdList.set(i, needInsertList.get(insertIndex).getId());
+                insertIndex++;
+            }
+        }
+        return resultIdList;
+    }
+
     private QuestionVO toVO(Question question) {
         if (question == null) return null;
         QuestionVO vo = new QuestionVO();
@@ -193,6 +224,49 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         return vo;
     }
 
+    private Long processQuestion(Question question) {
+        // 1. 题干校验
+        if (StrUtil.isBlank(question.getContent())) {
+            throw new BusinessException(400, "题干不能为空");
+        }
+        String md5 = DigestUtil.md5Hex(question.getContent());
+
+        // 2. 查询重复数据（含已删除）
+        Question existQuestion = LogicDeleteManager.execWithoutLogicDelete(() -> {
+            QueryWrapper wrapper = QueryWrapper.create()
+                    .eq(Question::getQuestionMd5, md5);
+            return this.getOne(wrapper);
+        });
+
+        // 3. 已存在未删除 → 报错
+        if (existQuestion != null && existQuestion.getIsDeleted() == 0) {
+            throw new BusinessException(400, "该试题已存在");
+        }
+
+        // 4. 已删除 → 恢复数据，返回ID
+        if (existQuestion != null && existQuestion.getIsDeleted() == 1) {
+            LogicDeleteManager.execWithoutLogicDelete(() -> {
+                existQuestion.setIsDeleted(0);
+                existQuestion.setCreatorId(StpUtil.getLoginIdAsLong());
+                existQuestion.setStatus(1);
+                this.updateById(existQuestion);
+            });
+            return existQuestion.getId();
+        }
+
+        // 5. 新试题 → 填充公共字段
+        question.setQuestionMd5(md5);
+        question.setCreatorId(StpUtil.getLoginIdAsLong());
+        question.setStatus(question.getStatus() == null ? 1 : question.getStatus());
+
+        // 6. AI自动标签
+        // todo 题目保存后才能更新
+        if (question.getTags() == null || question.getKnowledgePoints() == null) {
+            aiAddLabelAsync(question);
+        }
+
+        return null;
+    }
     // ai加标签
     private void aiAddLabel(Question question){
         try {

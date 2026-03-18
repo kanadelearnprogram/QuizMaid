@@ -2,6 +2,7 @@ package com.kanade.backend.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.json.JSONUtil;
 import com.kanade.backend.common.BaseResponse;
 import com.kanade.backend.common.DeleteRequest;
@@ -19,6 +20,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/question")
@@ -44,6 +48,32 @@ public class QuestionController {
         }
         Long id = questionService.addQuestion(question);
         return ResultUtils.success(id);
+    }
+
+    @PostMapping("/add/batch")
+    @SaCheckLogin
+    @Operation(summary = "批量添加试题")
+    public BaseResponse<List<Long>> batchAddQuestion(@RequestBody List<QuestionAddDTO> batchAddDTOList) {
+        if (CollUtil.isEmpty(batchAddDTOList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        List<Question> questionList = new ArrayList<>();
+        for (QuestionAddDTO addDTO : batchAddDTOList) {
+            Question question = new Question();
+            BeanUtils.copyProperties(addDTO, question);
+            // 选项、标签格式转换
+            if (addDTO.getOptions() != null) {
+                question.setOptions(addDTO.getOptions().toString());
+            }
+            if (addDTO.getTags() != null) {
+                question.setTags(JSONUtil.toJsonStr(addDTO.getTags()));
+            }
+            questionList.add(question);
+        }
+        // 3. 调用批量插入服务
+        List<Long> questionIdList = questionService.batchAddQuestion(questionList);
+        return ResultUtils.success(questionIdList);
     }
 
     @PostMapping("/update")
