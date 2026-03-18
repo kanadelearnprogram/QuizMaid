@@ -106,7 +106,7 @@ sa-token:
   # 是否输出操作日志
   is-log: true
 
-  #RabbitMQ 配置
+  #RabbitMQ 配置 
 rabbitmq:
   host: localhost
   port: 8080
