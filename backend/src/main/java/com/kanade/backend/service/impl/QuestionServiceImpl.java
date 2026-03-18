@@ -22,9 +22,11 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,6 +82,10 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         }
 
         this.save(question);
+
+        if (question.getTags() == null || question.getKnowledgePoints() == null) {
+            aiAddLabelAsync(question);
+        }
 
         return question.getId();
     }
@@ -187,5 +193,32 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         return vo;
     }
 
-    
+    // ai加标签
+    private void aiAddLabel(Question question){
+        try {
+            AiService aiCodeGeneratorService = aiServiceFactory.createAiCodeGeneratorService();
+            LabelResult labelResult = aiCodeGeneratorService.generateQuestionLabel(question.toString());
+
+            question.setDifficulty(labelResult.getDifficult());
+            question.setKnowledgePoints(labelResult.getKnowledgePoints());
+            question.setSubject(labelResult.getSubject());
+            question.setChapter(labelResult.getChapter());
+            question.setTags(JSONUtil.toJsonStr(labelResult.getTags()));
+
+            this.updateById(question);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"ai响应失败或数据库异常");
+        }
+    }
+
+    public void aiAddLabelAsync(Question question){
+        // 核心：Java原生异步执行，不阻塞主线程
+        CompletableFuture.runAsync(() -> {
+            try {
+                aiAddLabel(question);
+            } catch (Exception ignored) {
+                // 异步线程异常，不影响主线程
+            }
+        });
+    }
 }
