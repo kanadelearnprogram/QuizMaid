@@ -2,15 +2,16 @@ spring:
   main:
     lazy-initialization: false
     # redis配置
-  redis:
-    # Redis数据库索引（默认为0）
-    database: 1
-    # Redis服务器地址
-    host: 127.0.0.1
-    # Redis服务器连接端口
-    port: 6379
-    # Redis服务器连接密码（默认为空）
-    # password:
+  data:
+    redis:
+      # Redis数据库索引（默认为0）
+      database: 1
+      # Redis服务器地址
+      host: 127.0.0.1
+      # Redis服务器连接端口
+      port: 6379
+      # Redis服务器连接密码（默认为空）
+      # password:
 
   profiles:
     active: local
@@ -106,18 +107,18 @@ sa-token:
   # 是否输出操作日志
   is-log: true
 
-  #RabbitMQ 配置
-rabbitmq:
-  host: localhost
-  port: 8080
-  username: root
-  password: whw315216
-  virtual-host: /
-  listener:
-    simple:
-      acknowledge-mode: manual
-      concurrency: 1
-      max-concurrency: 5
+  #RabbitMQ 配置 在你自己的local中写
+#rabbitmq:
+#  host: localhost
+#  port: 8080
+#  username: root
+#  password: whw315216
+#  virtual-host: /
+#  listener:
+#    simple:
+#      acknowledge-mode: manual
+#      concurrency: 1
+#      max-concurrency: 5
 
 #github:
 #  client-id:
