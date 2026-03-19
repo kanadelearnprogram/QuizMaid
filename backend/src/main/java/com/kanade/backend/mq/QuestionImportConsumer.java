@@ -37,7 +37,7 @@ public class QuestionImportConsumer {
     @Autowired
     private ImportTaskRedisService importTaskRedisService;
 
-    @RabbitListener(queues = RabbitMQConfig.QUEUE_IMPORT)
+    @RabbitListener(queues = RabbitMQConfig.QUEUE_IMPORT, ackMode = "MANUAL", concurrency = "1")
     public void handleImport(QuestionImportMessageDTO message, Channel channel, Message amqpMessage) throws IOException {
         long deliveryTag = amqpMessage.getMessageProperties().getDeliveryTag();
         String taskId = message.getTaskId();
@@ -65,7 +65,7 @@ public class QuestionImportConsumer {
                         // 转换为 Question 实体
                         Question question = convertToQuestion(data, creatorId);
                         // 调用原有添加逻辑（包含MD5查重）
-                        questionService.addQuestion(question);
+                        questionService.addQuestion(question, creatorId);
                         success[0]++;
                     } catch (Exception e) {
                         log.error("第{}行数据导入失败: {}", total[0], e.getMessage());

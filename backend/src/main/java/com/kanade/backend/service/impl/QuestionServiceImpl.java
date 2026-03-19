@@ -87,6 +87,53 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
     }
 
     @Override
+    public Long addQuestion(Question question, Long creatorId) {
+        if (StrUtil.isBlank(question.getContent())) {
+            throw new BusinessException(400, "题干不能为空");
+        }
+        String md5 = DigestUtil.md5Hex(question.getContent());
+
+
+        // 查询所有数据（含已删除）
+        Question existQuestion = LogicDeleteManager.execWithoutLogicDelete(() -> {
+            QueryWrapper wrapper = QueryWrapper.create()
+                    .eq(Question::getQuestionMd5, md5);
+            return this.getOne(wrapper);
+        });
+
+        // 1. 数据存在【未删除】→ 直接抛重复错误
+        if (existQuestion != null && existQuestion.getIsDeleted() == 0) {
+            throw new BusinessException(400, "该试题已存在");
+        }
+
+        // 2. 数据存在【已删除】→ 恢复数据
+        if (existQuestion != null && existQuestion.getIsDeleted() == 1) {
+            LogicDeleteManager.execWithoutLogicDelete(() -> {
+                existQuestion.setIsDeleted(0);
+                existQuestion.setCreatorId(creatorId != null ? creatorId : StpUtil.getLoginIdAsLong());
+                existQuestion.setStatus(1);
+                this.updateById(existQuestion);
+            });
+            return existQuestion.getId();
+        }
+
+        // 3. 无数据 → 新增
+        question.setQuestionMd5(md5);
+        question.setCreatorId(creatorId != null ? creatorId : StpUtil.getLoginIdAsLong());
+        question.setStatus(question.getStatus() == null ? 1 : question.getStatus());
+
+
+
+        this.save(question);
+
+        if (question.getTags() == null || question.getKnowledgePoints() == null) {
+            aiAddLabelAsync(question);
+        }
+
+        return question.getId();
+    }
+
+    @Override
     public boolean updateQuestion(Question question) {
         Long id = question.getId();
         if (id == null) {
