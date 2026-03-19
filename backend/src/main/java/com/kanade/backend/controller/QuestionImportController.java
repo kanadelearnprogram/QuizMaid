@@ -48,6 +48,7 @@ public class QuestionImportController {
         }
 
         try {
+            String uploadDir = System.getProperty("user.dir") + "/uploads";
             // 2. 保存文件到本地临时目录
             Path uploadPath = Paths.get(uploadDir);
             if (!Files.exists(uploadPath)) {
@@ -57,6 +58,7 @@ public class QuestionImportController {
             Path filePath = uploadPath.resolve(fileName);
             file.transferTo(filePath.toFile());
 
+            // todo 为什么保存到本地
             // 3. 生成任务ID
             String taskId = UUID.randomUUID().toString().replace("-", "");
 

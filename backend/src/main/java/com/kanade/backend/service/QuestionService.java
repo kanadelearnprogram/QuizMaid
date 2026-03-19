@@ -14,6 +14,7 @@ public interface QuestionService extends IService<Question> {
      */
     Long addQuestion(Question question);
 
+    Long addQuestion(Question question, Long creatorId);
     /**
      * 更新试题（重新生成MD5并查重）
      */
