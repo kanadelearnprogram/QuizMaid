@@ -15,11 +15,11 @@ public class ExamPaper implements Serializable {
 
     @Id(keyType = KeyType.Auto)
     private Long id;
-
+    @Column("paperName")
     private String paperName;
 
     private String subject;
-
+    @Column("totalScore")
     private Integer totalScore;
 
     @Column("creatorId")
