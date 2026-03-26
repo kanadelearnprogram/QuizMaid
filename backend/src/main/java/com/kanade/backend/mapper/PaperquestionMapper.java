@@ -3,6 +3,7 @@ package com.kanade.backend.mapper;
 import com.mybatisflex.core.BaseMapper;
 import com.kanade.backend.model.entity.Paperquestion;
 import com.mybatisflex.core.query.QueryWrapper;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -13,5 +14,5 @@ import java.util.List;
  */
 public interface PaperquestionMapper extends BaseMapper<Paperquestion> {
 
-    List<Paperquestion> selectList(QueryWrapper orderBy);
+    //List<Paperquestion> selectList(QueryWrapper orderBy);
 }

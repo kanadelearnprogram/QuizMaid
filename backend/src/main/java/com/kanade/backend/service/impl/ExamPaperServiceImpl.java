@@ -101,9 +101,9 @@ public class ExamPaperServiceImpl extends ServiceImpl<ExamPaperMapper, ExamPaper
         ExamPaperVO vo = new ExamPaperVO();
         BeanUtils.copyProperties(paper, vo);
         // 获取关联的试题
-        List<Paperquestion> relations = paperquestionMapper.selectList(
-                QueryWrapper.create().eq("paperId", id).orderBy("sort", true)
-        );
+        QueryWrapper queryWrapper = new QueryWrapper();
+        queryWrapper.eq("paperId",id).orderBy("sort",true);
+        List<Paperquestion> relations = paperquestionMapper.selectListWithRelationsByQuery(queryWrapper);
         if (!relations.isEmpty()) {
             List<Long> questionIds = relations.stream().map(Paperquestion::getQuestionId).collect(Collectors.toList());
             List<Question> questions = questionService.listByIds(questionIds);
