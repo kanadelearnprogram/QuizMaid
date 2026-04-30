@@ -14,7 +14,10 @@ import com.kanade.backend.mapper.QuestionMapper;
 import com.kanade.backend.model.dto.QuestionQueryDTO;
 import com.kanade.backend.model.entity.Question;
 import com.kanade.backend.model.enums.TaskEnum;
+import com.kanade.backend.model.es.QuestionDocument;
 import com.kanade.backend.model.vo.QuestionVO;
+import com.kanade.backend.service.QuestionCacheService;
+import com.kanade.backend.service.QuestionEsService;
 import com.kanade.backend.service.QuestionService;
 import com.mybatisflex.core.logicdelete.LogicDeleteManager;
 import com.mybatisflex.core.paginate.Page;
@@ -38,6 +41,12 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
     @Resource
     private AiServiceFactory aiServiceFactory;
+
+    @Resource
+    private QuestionCacheService questionCacheService;
+
+    @Resource
+    private QuestionEsService questionEsService;
 
     @Override
     public Long addQuestion(Question question) {
@@ -82,6 +91,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         if (question.getTags() == null || question.getKnowledgePoints() == null) {
             aiAddLabelAsync(question);
         }
+
+        // 异步同步到ES
+        syncQuestionToEsAsync(question);
 
         return question.getId();
     }
@@ -130,6 +142,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             aiAddLabelAsync(question);
         }
 
+        // 异步同步到ES
+        syncQuestionToEsAsync(question);
+
         return question.getId();
     }
 
@@ -156,11 +171,30 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         }
 
         question.setCreatorId(null);
-        return this.updateById(question);
+        boolean result = this.updateById(question);
+
+        // 清除缓存
+        if (result) {
+            questionCacheService.removeQuestionDetailCache(id);
+            // 异步同步到ES
+            syncQuestionToEsAsync(this.getById(id));
+        }
+
+        return result;
     }
 
     @Override
     public Page<QuestionVO> getQuestionPage(QuestionQueryDTO queryDTO) {
+        // 生成缓存key（基于查询条件）
+        String cacheKey = generateCacheKey(queryDTO);
+        
+        // 1. 先查缓存
+        Page<QuestionVO> cachedPage = questionCacheService.getCachedQuestionList(cacheKey);
+        if (cachedPage != null) {
+            return cachedPage;
+        }
+
+        // 2. 缓存未命中，查数据库
         QueryWrapper wrapper = QueryWrapper.create();
         if (queryDTO.getId() != null) {
             wrapper.eq("id", queryDTO.getId());
@@ -209,16 +243,58 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
         Page<QuestionVO> voPage = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize(), page.getTotalRow());
         voPage.setRecords(voList);
+
+        // 3. 写入缓存
+        questionCacheService.cacheQuestionList(cacheKey, voPage);
+
         return voPage;
+    }
+
+    /**
+     * 生成缓存key
+     */
+    private String generateCacheKey(QuestionQueryDTO queryDTO) {
+        return String.format("%d_%d_%s_%s_%d_%s_%s_%s_%d_%d_%s_%s",
+                queryDTO.getPageNum(),
+                queryDTO.getPageSize(),
+                queryDTO.getId(),
+                queryDTO.getType(),
+                queryDTO.getDifficulty(),
+                queryDTO.getSubject(),
+                queryDTO.getChapter(),
+                queryDTO.getKnowledgePoints(),
+                queryDTO.getTags(),
+                queryDTO.getContent(),
+                queryDTO.getCreatorId(),
+                queryDTO.getStatus(),
+                queryDTO.getSortField()
+        );
     }
 
     @Override
     public QuestionVO getQuestionVOById(Long id) {
+        // 1. 先查缓存
+        QuestionVO cachedVO = questionCacheService.getCachedQuestionDetail(id);
+        if (cachedVO != null) {
+            // 记录访问次数
+            questionCacheService.recordQuestionAccess(id);
+            return cachedVO;
+        }
+
+        // 2. 缓存未命中，查数据库
         Question question = this.getById(id);
         if (question == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "试题不存在");
         }
-        return toVO(question);
+        QuestionVO vo = toVO(question);
+
+        // 3. 写入缓存
+        questionCacheService.cacheQuestionDetail(id, vo);
+        
+        // 4. 记录访问次数
+        questionCacheService.recordQuestionAccess(id);
+
+        return vo;
     }
 
     @Override
@@ -341,5 +417,31 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
                 // 异步线程异常，不影响主线程
             }
         });
+    }
+
+    /**
+     * 异步同步试题到ES
+     */
+    private void syncQuestionToEsAsync(Question question) {
+        if (question == null) {
+            return;
+        }
+        CompletableFuture.runAsync(() -> {
+            try {
+                QuestionDocument document = convertToDocument(question);
+                questionEsService.syncQuestionToEs(document);
+            } catch (Exception e) {
+                log.error("异步同步试题到ES失败, id: {}", question.getId(), e);
+            }
+        });
+    }
+
+    /**
+     * 将Question转换为QuestionDocument
+     */
+    private QuestionDocument convertToDocument(Question question) {
+        QuestionDocument document = new QuestionDocument();
+        BeanUtils.copyProperties(question, document);
+        return document;
     }
 }
