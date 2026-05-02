@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import com.kanade.backend.utils.NormalizationUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -56,21 +57,18 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             throw new BusinessException(400, "题干不能为空");
         }
         String md5 = DigestUtil.md5Hex(question.getContent());
+        question.setCompositeMd5(NormalizationUtils.generateCompositeMd5(question));
 
-
-        // 查询所有数据（含已删除）
         Question existQuestion = LogicDeleteManager.execWithoutLogicDelete(() -> {
             QueryWrapper wrapper = QueryWrapper.create()
                     .eq(Question::getQuestionMd5, md5);
             return this.getOne(wrapper);
         });
 
-        // 1. 数据存在【未删除】→ 直接抛重复错误
         if (existQuestion != null && existQuestion.getIsDeleted() == 0) {
             throw new BusinessException(400, "该试题已存在");
         }
 
-        // 2. 数据存在【已删除】→ 恢复数据
         if (existQuestion != null && existQuestion.getIsDeleted() == 1) {
             LogicDeleteManager.execWithoutLogicDelete(() -> {
                 existQuestion.setIsDeleted(0);
@@ -81,12 +79,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             return existQuestion.getId();
         }
 
-        // 3. 无数据 → 新增
         question.setQuestionMd5(md5);
         question.setCreatorId(StpUtil.getLoginIdAsLong());
         question.setStatus(question.getStatus() == null ? 1 : question.getStatus());
-
-
 
         this.save(question);
 
@@ -94,7 +89,6 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             aiAddLabelAsync(question);
         }
 
-        // 异步同步到ES
         syncQuestionToEsAsync(question);
 
         return question.getId();
@@ -106,21 +100,18 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             throw new BusinessException(400, "题干不能为空");
         }
         String md5 = DigestUtil.md5Hex(question.getContent());
+        question.setCompositeMd5(NormalizationUtils.generateCompositeMd5(question));
 
-
-        // 查询所有数据（含已删除）
         Question existQuestion = LogicDeleteManager.execWithoutLogicDelete(() -> {
             QueryWrapper wrapper = QueryWrapper.create()
                     .eq(Question::getQuestionMd5, md5);
             return this.getOne(wrapper);
         });
 
-        // 1. 数据存在【未删除】→ 直接抛重复错误
         if (existQuestion != null && existQuestion.getIsDeleted() == 0) {
             throw new BusinessException(400, "该试题已存在");
         }
 
-        // 2. 数据存在【已删除】→ 恢复数据
         if (existQuestion != null && existQuestion.getIsDeleted() == 1) {
             LogicDeleteManager.execWithoutLogicDelete(() -> {
                 existQuestion.setIsDeleted(0);
@@ -131,12 +122,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             return existQuestion.getId();
         }
 
-        // 3. 无数据 → 新增
         question.setQuestionMd5(md5);
         question.setCreatorId(creatorId != null ? creatorId : StpUtil.getLoginIdAsLong());
         question.setStatus(question.getStatus() == null ? 1 : question.getStatus());
-
-
 
         this.save(question);
 
@@ -144,7 +132,6 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             aiAddLabelAsync(question);
         }
 
-        // 异步同步到ES
         syncQuestionToEsAsync(question);
 
         return question.getId();
@@ -401,6 +388,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             throw new BusinessException(400, "题干不能为空");
         }
         String md5 = DigestUtil.md5Hex(question.getContent());
+        question.setCompositeMd5(NormalizationUtils.generateCompositeMd5(question));
 
         // 2. 查询重复数据（含已删除）
         Question existQuestion = LogicDeleteManager.execWithoutLogicDelete(() -> {

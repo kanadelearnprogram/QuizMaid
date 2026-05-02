@@ -131,6 +131,14 @@ sa-token:
 #  client-secret:
 #  redirect-uri: http://localhost:8080/oauth/github/callback
 
+# App credentials for signature verification
+app:
+  credentials:
+    app-web:
+      secret-key: "quizmaid-web-2026-secret"
+      app-name: "Web端"
+      status: enabled
+
 # AI
 #langchain4j:
 #  open-ai:
