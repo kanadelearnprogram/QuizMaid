@@ -33,7 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.redisson.api.RLock;
 
 @Service
 @Slf4j
@@ -276,24 +278,50 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         // 1. 先查缓存
         QuestionVO cachedVO = questionCacheService.getCachedQuestionDetail(id);
         if (cachedVO != null) {
-            // 记录访问次数
             questionCacheService.recordQuestionAccess(id);
             return cachedVO;
         }
 
-        // 2. 缓存未命中，查数据库
+        // 2. 缓存未命中，获取分布式锁防止击穿
+        RLock lock = questionCacheService.getDetailLock(id);
+        try {
+            if (lock.tryLock(3, 10, TimeUnit.SECONDS)) {
+                try {
+                    // 3. 双重检查缓存
+                    cachedVO = questionCacheService.getCachedQuestionDetail(id);
+                    if (cachedVO != null) {
+                        questionCacheService.recordQuestionAccess(id);
+                        return cachedVO;
+                    }
+
+                    // 4. 查询数据库
+                    Question question = this.getById(id);
+                    if (question == null) {
+                        questionCacheService.cacheQuestionDetail(id, null);
+                        throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "试题不存在");
+                    }
+                    QuestionVO vo = toVO(question);
+
+                    // 5. 写入缓存
+                    questionCacheService.cacheQuestionDetail(id, vo);
+                    questionCacheService.recordQuestionAccess(id);
+
+                    return vo;
+                } finally {
+                    lock.unlock();
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // 6. 获取锁失败，降级查数据库
         Question question = this.getById(id);
         if (question == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "试题不存在");
         }
         QuestionVO vo = toVO(question);
-
-        // 3. 写入缓存
-        questionCacheService.cacheQuestionDetail(id, vo);
-        
-        // 4. 记录访问次数
         questionCacheService.recordQuestionAccess(id);
-
         return vo;
     }
 
@@ -328,6 +356,10 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
 
         if (CollUtil.isNotEmpty(needInsertList)) {
             this.saveBatch(needInsertList);
+            // 异步同步新增试题到ES
+            for (Question q : needInsertList) {
+                syncQuestionToEsAsync(q);
+            }
         }
 
         int insertIndex = 0;
@@ -338,6 +370,22 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             }
         }
         return resultIdList;
+    }
+
+    @Override
+    public boolean deleteQuestion(Long id) {
+        boolean result = this.removeById(id);
+        if (result) {
+            questionCacheService.removeQuestionDetailCache(id);
+            CompletableFuture.runAsync(() -> {
+                try {
+                    questionEsService.deleteQuestionFromEs(id);
+                } catch (Exception e) {
+                    log.error("从ES删除试题失败, id: {}", id, e);
+                }
+            });
+        }
+        return result;
     }
 
     private QuestionVO toVO(Question question) {
@@ -442,6 +490,16 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
     private QuestionDocument convertToDocument(Question question) {
         QuestionDocument document = new QuestionDocument();
         BeanUtils.copyProperties(question, document);
+        // knowledgePoints: comma-separated String → List<String>
+        if (StrUtil.isNotBlank(question.getKnowledgePoints())) {
+            document.setKnowledgePoints(
+                    StrUtil.split(question.getKnowledgePoints(), ",")
+                            .stream().map(String::trim).toList());
+        }
+        // tags: JSON array String → List<String>
+        if (StrUtil.isNotBlank(question.getTags())) {
+            document.setTags(cn.hutool.json.JSONUtil.toList(question.getTags(), String.class));
+        }
         return document;
     }
 }

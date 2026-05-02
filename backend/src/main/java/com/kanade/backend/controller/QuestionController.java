@@ -116,7 +116,7 @@ public class QuestionController {
         if (!user.getRole().equals("admin") && !user.getId().equals(byId.getCreatorId())){
             throw new BusinessException(ErrorCode.FORBIDDEN_ERROR,"无权访问");
         }
-        boolean result = questionService.removeById(deleteRequest.getId());
+        boolean result = questionService.deleteQuestion(deleteRequest.getId());
         return ResultUtils.success(result);
     }
 

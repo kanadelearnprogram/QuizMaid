@@ -118,28 +118,28 @@ CREATE TABLE `userAnswerDetail` (
                                     KEY `idxQuestionId` (`questionId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='答题详情表';
 
--- 7. 用户签到表（驼峰命名）
-CREATE TABLE `userSign` (
-                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                            `userId` bigint NOT NULL COMMENT '用户ID',
-                            `signDate` date NOT NULL COMMENT '签到日期',
-                            `continueDays` int DEFAULT 1 COMMENT '连续签到天数',
-                            `createTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            `isDeleted` tinyint DEFAULT 0,
-                            PRIMARY KEY (`id`),
-                            UNIQUE KEY `ukUserDate` (`userId`,`signDate`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户签到表';
-
--- 8. 用户做题日统计表（驼峰命名）
-CREATE TABLE `userAnswerStats` (
-                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                   `userId` bigint NOT NULL COMMENT '用户ID',
-                                   `statsDate` date NOT NULL COMMENT '统计日期',
-                                   `answerNum` int DEFAULT 0 COMMENT '当日做题数',
-                                   `correctNum` int DEFAULT 0 COMMENT '当日做对题数',
-                                   `createTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                   `updateTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                                   `isDeleted` tinyint DEFAULT 0,
-                                   PRIMARY KEY (`id`),
-                                   UNIQUE KEY `ukUserDate` (`userId`,`statsDate`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户做题日统计表';
+-- -- 7. 用户签到表（驼峰命名）
+-- CREATE TABLE `userSign` (
+--                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+--                             `userId` bigint NOT NULL COMMENT '用户ID',
+--                             `signDate` date NOT NULL COMMENT '签到日期',
+--                             `continueDays` int DEFAULT 1 COMMENT '连续签到天数',
+--                             `createTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--                             `isDeleted` tinyint DEFAULT 0,
+--                             PRIMARY KEY (`id`),
+--                             UNIQUE KEY `ukUserDate` (`userId`,`signDate`)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户签到表';
+--
+-- -- 8. 用户做题日统计表（驼峰命名）
+-- CREATE TABLE `userAnswerStats` (
+--                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+--                                    `userId` bigint NOT NULL COMMENT '用户ID',
+--                                    `statsDate` date NOT NULL COMMENT '统计日期',
+--                                    `answerNum` int DEFAULT 0 COMMENT '当日做题数',
+--                                    `correctNum` int DEFAULT 0 COMMENT '当日做对题数',
+--                                    `createTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--                                    `updateTime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--                                    `isDeleted` tinyint DEFAULT 0,
+--                                    PRIMARY KEY (`id`),
+--                                    UNIQUE KEY `ukUserDate` (`userId`,`statsDate`)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户做题日统计表';
