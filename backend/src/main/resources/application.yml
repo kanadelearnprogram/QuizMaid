@@ -12,6 +12,11 @@ spring:
       port: 6379
       # Redis服务器连接密码（默认为空）
       # password:
+    # Elasticsearch配置
+    elasticsearch:
+      uris: http://127.0.0.1:9200
+      # username: elastic
+      # password: your_password
 
   profiles:
     active: local

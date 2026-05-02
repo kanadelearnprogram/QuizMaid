@@ -14,6 +14,7 @@ import com.kanade.backend.model.dto.*;
 import com.kanade.backend.model.entity.Question;
 import com.kanade.backend.model.entity.User;
 import com.kanade.backend.model.vo.QuestionVO;
+import com.kanade.backend.service.QuestionEsService;
 import com.kanade.backend.service.QuestionService;
 import com.mybatisflex.core.paginate.Page;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +38,9 @@ public class QuestionController {
 
     @Autowired
     private QuestionService questionService;
+
+    @Autowired
+    private QuestionEsService questionEsService;
 
 
     // todo 管理员管理题目
@@ -151,6 +155,14 @@ public class QuestionController {
     public BaseResponse<Page<QuestionVO>> listQuestionByPage(@RequestBody QuestionQueryDTO queryDTO) {
         queryDTO.setCreatorId(StpUtil.getLoginIdAsLong());
         Page<QuestionVO> page = questionService.getQuestionPage(queryDTO);
+        return ResultUtils.success(page);
+    }
+
+    @PostMapping("/search")
+    @SaCheckLogin
+    @Operation(summary = "ES全文检索试题（支持分词）")
+    public BaseResponse<Page<QuestionVO>> searchQuestions(@RequestParam String keyword, @RequestBody QuestionQueryDTO queryDTO) {
+        Page<QuestionVO> page = questionEsService.searchQuestions(keyword, queryDTO);
         return ResultUtils.success(page);
     }
 }
