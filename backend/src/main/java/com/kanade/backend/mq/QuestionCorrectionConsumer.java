@@ -65,7 +65,8 @@ public class QuestionCorrectionConsumer {
             String userMessage = buildJudgePrompt(question, detail);
 
             AiService aiService = AiServiceFactory.getAiService(TaskEnum.JUDGE);
-            JudgeResult result = aiService.generateQuestionJudge(userMessage);
+            String aiResponse = aiService.generateQuestionJudge(userMessage);
+            JudgeResult result = JSONUtil.toBean(aiResponse, JudgeResult.class);
 
             detail.setActualScore(result.getTotalScore() != null ? result.getTotalScore() : 0);
             if (result.getTotalScore() != null && detail.getQuestionScore() != null
@@ -94,16 +95,12 @@ public class QuestionCorrectionConsumer {
     }
 
     private String buildJudgePrompt(Question question, Useranswerdetail detail) {
-        return String.format("""
-                题目内容: %s
-                题目总分: %d
-                标准答案: %s
-                学生答案: %s
-                """,
-                question.getContent(),
-                detail.getQuestionScore() != null ? detail.getQuestionScore() : 0,
-                question.getAnswer(),
-                detail.getUserAnswer());
+        StringBuilder sb = new StringBuilder();
+        sb.append("题目内容: ").append(question.getContent()).append("\n");
+        sb.append("题目总分: ").append(detail.getQuestionScore() != null ? detail.getQuestionScore() : 0).append("\n");
+        sb.append("标准答案: ").append(question.getAnswer()).append("\n");
+        sb.append("学生答案: ").append(detail.getUserAnswer());
+        return sb.toString();
     }
 
     private void tryFinishExamRecord(Long recordId) {

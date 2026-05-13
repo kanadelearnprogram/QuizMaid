@@ -57,6 +57,12 @@
         >
           批量删除
         </a-button>
+        <a-button
+          @click="exportVisible = true"
+          :disabled="selectedRowKeys.length === 0"
+        >
+          批量导出
+        </a-button>
       </div>
 
       <!-- 试卷列表表格区 -->
@@ -80,14 +86,33 @@
           </template>
           <template v-if="column.key === 'action'">
             <a-space>
-              <a-button type="link" size="small" @click="handleEdit(record)">
+              <a-button
+                v-if="record.status !== 1"
+                type="link" size="small" @click="handleEdit(record)"
+              >
                 编辑
+              </a-button>
+              <a-button
+                type="link" size="small" @click="handleCopy(record)"
+              >
+                复制
               </a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">
                 删除
               </a-button>
               <a-button type="link" size="small" @click="handleManageQuestions(record)">
                 管理试题
+              </a-button>
+              <a-button type="link" size="small" @click="exportPid = record.id; exportPname = record.paperName; exportVisible = true">
+                导出
+              </a-button>
+              <a-button
+                v-if="record.status === 1"
+                type="link" size="small"
+                style="color: #52c41a;"
+                @click="handleStartExam(record)"
+              >
+                考试
               </a-button>
             </a-space>
           </template>
@@ -381,6 +406,15 @@
         </a-tab-pane>
       </a-tabs>
     </a-modal>
+
+    <!-- 导出弹窗 -->
+    <PaperExportDialog
+      v-if="exportVisible"
+      :paper-id="exportPid"
+      :paper-name="exportPname"
+      :paper-ids="selectedRowKeys"
+      @close="exportVisible = false"
+    />
   </div>
 </template>
 
@@ -391,6 +425,7 @@ import { message, Modal } from 'ant-design-vue'
 import {
   addExamPaper,
   deleteExamPaper,
+  copyExamPaper,
   listExamPaperByPage,
   updateExamPaper,
   getExamPaperById,
@@ -406,6 +441,7 @@ import {
 } from '@/api/shijuanshitiguanlianguanli'
 import { listQuestionByPage, listAllQuestionByPage } from '@/api/shitiguanli'
 import { useLoginUserStore } from '@/stores/loginUser'
+import PaperExportDialog from './PaperExportDialog.vue'
 import type { FormInstance } from 'ant-design-vue'
 
 interface PaperRecord {
@@ -475,6 +511,9 @@ const loading = ref(false)
 const paperList = ref<PaperRecord[]>([])
 const selectedRowKeys = ref<number[]>([])
 const router = useRouter()
+const exportVisible = ref(false)
+const exportPid = ref<number>()
+const exportPname = ref('')
 const loginUserStore = useLoginUserStore()
 
 const subjectOptions = ref<string[]>(['数学', '语文', '英语', '物理', '化学', '生物', '历史', '地理', '政治'])
@@ -755,6 +794,10 @@ const handleAdd = () => {
 }
 
 const handleEdit = (record: PaperRecord) => {
+  if (record.status === 1) {
+    message.warning('已发布试卷不可直接编辑，请使用复制功能修改')
+    return
+  }
   isEdit.value = true
   modalTitle.value = '编辑试卷'
   formState.id = record.id
@@ -763,6 +806,26 @@ const handleEdit = (record: PaperRecord) => {
   formState.totalScore = record.totalScore || 100
   formState.status = record.status || 0
   modalVisible.value = true
+}
+
+const handleCopy = async (record: PaperRecord) => {
+  if (!record.id) return
+  try {
+    const res = await copyExamPaper(record.id)
+    if (res.data.code === 0) {
+      message.success('复制成功，已创建试卷副本（状态：草稿）')
+      loadPaperList()
+    } else {
+      message.error('复制失败：' + res.data.message)
+    }
+  } catch (error) {
+    console.error(error)
+    message.error('复制请求失败')
+  }
+}
+
+const handleStartExam = (record: PaperRecord) => {
+  router.push({ path: '/exam', query: { paperId: record.id } })
 }
 
 const handleDelete = (record: PaperRecord) => {
