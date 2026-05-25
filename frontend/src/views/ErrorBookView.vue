@@ -35,9 +35,20 @@
               <a-radio-button value="list">列表</a-radio-button>
               <a-radio-button value="charts">图表</a-radio-button>
               <a-radio-button value="recommend">推荐</a-radio-button>
+              <a-radio-button value="groups">分组</a-radio-button>
             </a-radio-group>
-            <a-button size="small" @click="handlePreview">预览</a-button>
-            <a-button size="small" @click="handleExportExcel">导出</a-button>
+            <a-dropdown>
+              <a-button size="small">导出 <DownOutlined /></a-button>
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item key="preview" @click="handlePreview">在线预览</a-menu-item>
+                  <a-menu-item key="csv" @click="handleExportExcel">导出CSV</a-menu-item>
+                  <a-menu-item key="word" @click="handleExportWord">导出Word</a-menu-item>
+                  <a-menu-item key="pdf" @click="handleExportPdf">导出PDF</a-menu-item>
+                  <a-menu-item key="batch" @click="handleBatchExport">批量导出ZIP</a-menu-item>
+                </a-menu>
+              </template>
+            </a-dropdown>
             <a-button size="small" type="primary" @click="showAssemblyModal = true">强化组卷</a-button>
           </a-space>
         </a-col>
@@ -54,7 +65,22 @@
       </div>
       <a-table :columns="columns" :data-source="errorList" :loading="loading"
         :pagination="pagination" @change="handleTableChange" row-key="id" size="small"
-        :row-selection="{ selectedRowKeys: selectedIds, onChange: (keys: any) => selectedIds = keys }">
+        :row-selection="{ selectedRowKeys: selectedIds, onChange: (keys: any) => selectedIds = keys }"
+        :expanded-row-keys="expandedRowKeys" @expand="handleExpandRow">
+        <template #expandedRowRender="{ record }">
+          <div v-if="expandedQuestions[record.questionId]" class="question-detail">
+            <div class="q-content"><strong>题干：</strong><span v-html="renderQContent(expandedQuestions[record.questionId].content || '')"></span></div>
+            <div v-if="expandedOptions(record.questionId).length" class="q-options">
+              <strong>选项：</strong>
+              <div v-for="opt in expandedOptions(record.questionId)" :key="opt.key" class="q-opt-item">
+                {{ opt.key }}. {{ opt.text }}
+              </div>
+            </div>
+            <div class="q-answer"><strong>正确答案：</strong>{{ expandedQuestions[record.questionId].answer }}</div>
+            <div v-if="expandedQuestions[record.questionId].analysis" class="q-analysis"><strong>解析：</strong>{{ expandedQuestions[record.questionId].analysis }}</div>
+          </div>
+          <a-spin v-else size="small" />
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'errorType'">
             <a-tag :color="getErrorTypeColor(record.errorType)">{{ getErrorTypeName(record.errorType) }}</a-tag>
@@ -76,6 +102,8 @@
                 <a-select-option :value="3">思路</a-select-option>
                 <a-select-option :value="4">审题</a-select-option>
               </a-select>
+              <a-button size="small" @click="handleOpenNotes(record.id)">备注</a-button>
+              <a-button size="small" @click="handleShareError(record.id)">分享</a-button>
               <a-button size="small" @click="handleArchive(record.id)">归档</a-button>
               <a-button size="small" danger @click="handleDelete(record.id)">删除</a-button>
             </a-space>
@@ -158,9 +186,94 @@
       </a-form>
     </a-modal>
 
+    <!-- 分组模式 -->
+    <template v-if="viewMode === 'groups'">
+      <a-row :gutter="16">
+        <a-col :span="8">
+          <a-card size="small" title="错题分组">
+            <template #extra>
+              <a-button size="small" type="primary" @click="showCreateGroup = true">新建</a-button>
+            </template>
+            <div v-for="g in groups" :key="g.id" style="padding:8px;margin-bottom:4px;border:1px solid #f0f0f0;border-radius:4px;cursor:pointer"
+              :style="{background: selectedGroupId===g.id?'#e6f7ff':''}" @click="selectGroup(g)">
+              <div style="font-weight:500">{{ g.groupName }}</div>
+              <div style="font-size:11px;color:#999">{{ g.description || '无描述' }}</div>
+            </div>
+            <a-empty v-if="groups.length===0" description="暂无分组" style="padding:24px" />
+          </a-card>
+        </a-col>
+        <a-col :span="16">
+          <a-card size="small" :title="selectedGroupId ? '分组内错题' : '请选择分组'">
+            <template v-if="selectedGroupId" #extra>
+              <a-space>
+                <a-button size="small" danger @click="handleDeleteGroup(selectedGroupId!)">删除分组</a-button>
+              </a-space>
+            </template>
+            <a-table v-if="selectedGroupId" :columns="groupItemColumns" :data-source="groupItems" :loading="groupItemsLoading"
+              row-key="id" size="small" :pagination="false">
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key==='action'">
+                  <a-button type="link" size="small" danger @click="handleRemoveGroupItem(record.id)">移除</a-button>
+                </template>
+              </template>
+            </a-table>
+            <a-empty v-if="!selectedGroupId" description="点击左侧分组查看内容" style="padding:24px" />
+          </a-card>
+        </a-col>
+      </a-row>
+    </template>
+
+    <!-- 创建分组弹窗 -->
+    <a-modal v-model:open="showCreateGroup" title="创建错题分组" @ok="handleCreateGroup">
+      <a-form :label-col="{span:6}">
+        <a-form-item label="分组名称"><a-input v-model:value="newGroupName" /></a-form-item>
+        <a-form-item label="描述"><a-textarea v-model:value="newGroupDesc" :rows="2" /></a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 错题备注弹窗 -->
+    <a-modal v-model:open="noteVisible" title="错题备注" width="500px" :footer="null">
+      <a-list :data-source="notesList" size="small">
+        <template #renderItem="{ item }">
+          <a-list-item>
+            <a-list-item-meta>
+              <template #title>{{ item.noteType===1 ? '文字备注' : '图片备注' }}</template>
+              <template #description>
+                <template v-if="item.noteType===1">{{ item.content }}</template>
+                <img v-else :src="item.imageUrl" style="max-width:200px;max-height:200px" />
+              </template>
+            </a-list-item-meta>
+          </a-list-item>
+        </template>
+      </a-list>
+      <a-divider>添加备注</a-divider>
+      <a-space direction="vertical" style="width:100%">
+        <a-textarea v-model:value="newNoteContent" placeholder="输入文字备注（解题思路、易错提醒等）" :rows="2" />
+        <a-space>
+          <a-button type="primary" @click="handleAddNote(1)">添加文字备注</a-button>
+          <a-input v-model:value="newNoteImageUrl" placeholder="图片URL" style="width:250px" />
+          <a-button @click="handleAddNote(2)">添加图片</a-button>
+        </a-space>
+      </a-space>
+    </a-modal>
+
     <!-- 预览弹窗 -->
     <a-modal v-model:open="previewVisible" title="错题集预览" width="700px" :footer="null">
       <div v-html="previewHtml" style="max-height:500px;overflow-y:auto;"></div>
+    </a-modal>
+
+    <!-- 导出日志弹窗 -->
+    <a-modal v-model:open="exportLogVisible" title="导出记录" width="600px" :footer="null">
+      <a-table :columns="exportLogColumns" :data-source="exportLogs" :loading="exportLogLoading"
+        row-key="id" size="small" :pagination="false">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key==='status'">
+            <a-tag :color="record.exportStatus===2?'green':record.exportStatus===3?'red':'orange'">
+              {{ ['待处理','处理中','已完成','失败'][record.exportStatus||0] }}
+            </a-tag>
+          </template>
+        </template>
+      </a-table>
     </a-modal>
   </div>
 </template>
@@ -169,7 +282,9 @@
 import { ref, reactive, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { message } from 'ant-design-vue'
 import * as echarts from 'echarts'
-import { listErrors, updateReviewStatus, updateErrorType, toggleArchive, deleteError, getErrorStats, getWeakKnowledgePoints, recommendQuestions, recommendFeedback, batchDeleteErrors, batchUpdateReviewStatus, exportErrorBookExcel, previewErrorBook, reinforceAssemble } from '@/api/gerentongji'
+import { listErrors, updateReviewStatus, updateErrorType, toggleArchive, deleteError, getErrorStats, getWeakKnowledgePoints, recommendQuestions, recommendFeedback, batchDeleteErrors, batchUpdateReviewStatus, exportErrorBookExcel, exportErrorBookWord, exportErrorBookPdf, batchExportErrorBook, previewErrorBook, reinforceAssemble, createGroup, listGroups, deleteGroup, getGroupItems, removeGroupItem, batchGroup, addNote, listNotes, shareErrorBookToTeacher, checkErrorBookShared, getErrorBookExportLogs } from '@/api/gerentongji'
+import { getQuestionById } from '@/api/shitiguanli'
+import { DownOutlined } from '@ant-design/icons-vue'
 
 const loading = ref(false)
 const statsLoading = ref(false)
@@ -200,6 +315,36 @@ const columns = [
 
 const getErrorTypeName = (t: number) => ({ 1:'概念错误', 2:'计算错误', 3:'思路错误', 4:'审题错误' }[t] || '未知')
 const getErrorTypeColor = (t: number) => ({ 1:'orange', 2:'red', 3:'purple', 4:'blue' }[t] || 'default')
+
+// 展开行：加载题目详情
+const expandedRowKeys = ref<number[]>([])
+const expandedQuestions = ref<Record<number, any>>({})
+const handleExpandRow = async (expanded: boolean, record: any) => {
+  if (!record?.questionId) return
+  if (expanded) {
+    expandedRowKeys.value = [record.id]
+    const qid = record.questionId
+    if (!expandedQuestions.value[qid]) {
+      try {
+        const res = await getQuestionById({ id: qid })
+        if (res.data.code === 0 && res.data.data) {
+          expandedQuestions.value[qid] = res.data.data
+        }
+      } catch { /* ignore */ }
+    }
+  } else {
+    expandedRowKeys.value = []
+  }
+}
+const expandedOptions = (qid: number) => {
+  const q = expandedQuestions.value[qid]
+  if (!q?.options) return []
+  try {
+    const arr = JSON.parse(q.options)
+    return arr.map((o: any) => ({ key: String(o.key || o.label || o), text: String(o.value || o.text || o) }))
+  } catch { return [] }
+}
+const renderQContent = (c: string) => c?.replace(/\n/g, '<br/>') || ''
 
 const loadErrors = async () => {
   loading.value = true
@@ -269,7 +414,7 @@ const handleErrorType = async (id:number,t:number) => { try{await updateErrorTyp
 const handleArchive = async (id:number) => { try{await toggleArchive(id);message.success('已归档');loadErrors()}catch{message.error('失败')} }
 const handleDelete = async (id:number) => { try{await deleteError(id);message.success('已删除');loadErrors()}catch{message.error('失败')} }
 
-watch(viewMode, (v) => { if (v==='charts') loadStats() })
+watch(viewMode, (v) => { if (v==='charts') loadStats(); if (v==='groups') loadGroups() })
 // ===== 推荐 =====
 const recCount = ref(15)
 const recTendency = ref('balanced')
@@ -324,10 +469,119 @@ const handleAssembly = async () => {
   } catch { message.error('组卷失败') }
 }
 
+// ===== 分组管理 =====
+const groups = ref<any[]>([]); const selectedGroupId = ref<number|undefined>()
+const showCreateGroup = ref(false); const newGroupName = ref(''); const newGroupDesc = ref('')
+const groupItems = ref<any[]>([]); const groupItemsLoading = ref(false)
+const groupItemColumns = [
+  { title: 'ID', dataIndex: 'id', width: 60 },
+  { title: '错题ID', dataIndex: 'errorBookId', width: 80 },
+  { title: '时间', dataIndex: 'createTime' },
+  { title: '操作', key: 'action', width: 80 },
+]
+
+const loadGroups = async () => {
+  try {
+    const res = await listGroups()
+    if (res.data.code===0) groups.value = res.data.data || []
+  } catch {}
+}
+const selectGroup = async (g:any) => {
+  selectedGroupId.value = g.id; groupItemsLoading.value = true
+  try {
+    const res = await getGroupItems(g.id)
+    if (res.data.code===0) groupItems.value = res.data.data || []
+  } catch {}
+  groupItemsLoading.value = false
+}
+const handleCreateGroup = async () => {
+  if (!newGroupName.value) { message.warning('请输入分组名称'); return }
+  try { await createGroup(newGroupName.value, newGroupDesc.value); message.success('已创建'); showCreateGroup.value=false; loadGroups(); newGroupName.value=''; newGroupDesc.value='' } catch { message.error('失败') }
+}
+const handleDeleteGroup = async (id:number) => {
+  try { await deleteGroup(id); message.success('已删除'); selectedGroupId.value=undefined; loadGroups() } catch { message.error('失败') }
+}
+const handleRemoveGroupItem = async (itemId:number) => {
+  try { await removeGroupItem(itemId); message.success('已移除'); if (selectedGroupId.value) selectGroup({id:selectedGroupId.value}) } catch { message.error('失败') }
+}
+// Wire batch to groups
+const handleBatchGroup = async (groupId:number) => {
+  if (selectedIds.value.length===0) { message.warning('请先选择错题'); return }
+  try { await batchGroup(selectedIds.value, groupId); message.success('已分组'); selectedIds.value=[]; if (selectedGroupId.value===groupId) selectGroup({id:groupId}) } catch { message.error('失败') }
+}
+
+// ===== 备注 =====
+const noteVisible = ref(false); const noteErrorBookId = ref<number|undefined>()
+const notesList = ref<any[]>([]); const newNoteContent = ref(''); const newNoteImageUrl = ref('')
+const handleOpenNotes = async (errorBookId:number) => {
+  noteErrorBookId.value = errorBookId; noteVisible.value = true
+  try {
+    const res = await listNotes(errorBookId)
+    if (res.data.code===0) notesList.value = res.data.data || []
+  } catch {}
+}
+const handleAddNote = async (noteType:number) => {
+  if (!noteErrorBookId.value) return
+  const content = noteType===1 ? newNoteContent.value : newNoteImageUrl.value
+  if (!content) { message.warning('请输入内容'); return }
+  try {
+    await addNote(noteErrorBookId.value, content, noteType, noteType===2?newNoteImageUrl.value:undefined)
+    message.success('已添加'); newNoteContent.value=''; newNoteImageUrl.value=''
+    handleOpenNotes(noteErrorBookId.value)
+  } catch { message.error('失败') }
+}
+
+// ===== 导出增强 =====
+const handleExportWord = async () => {
+  try { const res = await exportErrorBookWord(); downloadBlob(res.data, '错题集.docx') } catch { message.error('导出失败') }
+}
+const handleExportPdf = async () => {
+  try { const res = await exportErrorBookPdf(); downloadBlob(res.data, '错题集.pdf') } catch { message.error('导出失败') }
+}
+const handleBatchExport = async () => {
+  try { const res = await batchExportErrorBook(); downloadBlob(res.data, '错题集-批量.zip') } catch { message.error('导出失败') }
+}
+const downloadBlob = (data:any, name:string) => {
+  const b = data instanceof Blob ? data : new Blob([data as any])
+  const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click()
+}
+
+// ===== 错题分享 =====
+const handleShareError = async (errorBookId:number) => {
+  try {
+    const res = await shareErrorBookToTeacher(errorBookId)
+    if (res.data.code===0) { message.success('已分享给教师'); return }
+    message.error(res.data.message || '分享失败')
+  } catch { message.error('分享失败') }
+}
+
+// ===== 导出日志 =====
+const exportLogVisible = ref(false); const exportLogs = ref<any[]>([]); const exportLogLoading = ref(false)
+const exportLogColumns = [
+  { title: '文件名', dataIndex: 'fileName', ellipsis: true },
+  { title: '类型', dataIndex: 'exportType', width: 80 },
+  { title: '状态', key: 'status', width: 80 },
+  { title: '时间', dataIndex: 'createTime', width: 160 },
+]
+const loadExportLogs = async () => {
+  exportLogVisible.value = true; exportLogLoading.value = true
+  try {
+    const res = await getErrorBookExportLogs()
+    if (res.data.code===0) exportLogs.value = res.data.data || []
+  } catch {}
+  exportLogLoading.value = false
+}
+
 onMounted(() => { loadErrors() })
 onUnmounted(() => { chartInstances.forEach(c=>c.dispose()) })
 </script>
 
 <style scoped>
 .error-book-page { padding: 0; }
+.question-detail { padding: 8px 16px; background: #fafafa; border-radius: 4px; }
+.question-detail .q-content { margin-bottom: 8px; line-height: 1.6; }
+.question-detail .q-options { margin-bottom: 8px; }
+.question-detail .q-opt-item { padding: 2px 0; }
+.question-detail .q-answer { color: #52c41a; font-weight: 500; }
+.question-detail .q-analysis { color: #faad14; }
 </style>

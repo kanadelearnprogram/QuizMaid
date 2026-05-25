@@ -47,8 +47,17 @@
         <a-button type="primary" @click="handleManualAssembly">
           手动组卷
         </a-button>
+        <a-button @click="strategyVisible = true">
+          策略管理
+        </a-button>
         <a-button type="primary" @click="handleAIPaperAssembly">
           AI智能组卷
+        </a-button>
+        <a-button
+          v-if="loginUserStore.loginUser?.role === 'user'"
+          @click="loadSharedToMe"
+        >
+          分享给我的
         </a-button>
         <a-button
           danger
@@ -114,6 +123,19 @@
               >
                 考试
               </a-button>
+              <a-button type="link" size="small" @click="handleShareToUser(record)">分享</a-button>
+              <a-select
+                v-model:value="record.status"
+                size="small"
+                style="width:90px"
+                @change="(v: number) => handleStatusChange(record, v)"
+                @click.stop
+              >
+                <a-select-option :value="0">草稿</a-select-option>
+                <a-select-option :value="1">已发布</a-select-option>
+                <a-select-option :value="2">已归档</a-select-option>
+                <a-select-option :value="3">已停用</a-select-option>
+              </a-select>
             </a-space>
           </template>
         </template>
@@ -146,6 +168,9 @@
         </a-form-item>
         <a-form-item label="总分" name="totalScore" :rules="[{ required: true, message: '请输入总分' }]">
           <a-input-number v-model:value="formState.totalScore" :min="0" :precision="0" style="width: 100%" />
+        </a-form-item>
+        <a-form-item label="考试时长(分钟)" name="duration">
+          <a-input-number v-model:value="formState.duration" :min="1" :max="300" :precision="0" style="width: 100%" placeholder="如90分钟" />
         </a-form-item>
         <a-form-item label="状态" name="status" :rules="[{ required: true, message: '请选择状态' }]">
           <a-select v-model:value="formState.status">
@@ -415,11 +440,105 @@
       :paper-ids="selectedRowKeys"
       @close="exportVisible = false"
     />
+
+    <!-- 策略管理弹窗 -->
+    <a-modal v-model:open="strategyVisible" title="组卷策略管理" width="70%" :footer="null">
+      <div style="margin-bottom:12px">
+        <a-button type="primary" @click="handleStrategyDetail(null)">新建策略</a-button>
+      </div>
+      <a-table :columns="strategyColumns" :data-source="strategyList" :loading="strategyLoading"
+        :pagination="strategyPagination" @change="handleStrategyTableChange" row-key="id" size="small">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'isDefault'">
+            <a-tag v-if="record.isDefault===1" color="gold">默认</a-tag>
+            <span v-else>-</span>
+          </template>
+          <template v-if="column.key === 'weightSum'">
+            <span :style="{color: record.weightSum===100?'#52c41a':'#ff4d4f'}">{{ record.weightSum || 0 }}%</span>
+          </template>
+          <template v-if="column.key === 'action'">
+            <a-space>
+              <a-button type="link" size="small" @click="handleStrategyDetail(record)">详情</a-button>
+              <a-button type="link" size="small" @click="handleStrategyEdit(record)">编辑</a-button>
+              <a-button type="link" size="small" @click="handleStrategyCopy(record.id)">复制</a-button>
+              <a-button v-if="record.isDefault!==1" type="link" size="small" @click="handleStrategySetDefault(record.id)">设默认</a-button>
+              <a-button type="link" size="small" danger @click="handleStrategyDelete(record.id)">删除</a-button>
+            </a-space>
+          </template>
+        </template>
+      </a-table>
+    </a-modal>
+
+    <!-- 策略详情/编辑弹窗 -->
+    <a-modal v-model:open="strategyDetailVisible" :title="strategyDetailTitle" width="60%" @ok="handleStrategySave" :confirmLoading="strategyDetailLoading">
+      <a-form :model="strategyForm" :label-col="{span:6}" :wrapper-col="{span:14}">
+        <a-form-item label="策略名称"><a-input v-model:value="strategyForm.strategyName" /></a-form-item>
+        <a-form-item label="目标总分"><a-input-number v-model:value="strategyForm.totalScore" :min="0" style="width:100%" /></a-form-item>
+        <a-form-item label="平均难度"><a-select v-model:value="strategyForm.difficultyAvg">
+          <a-select-option :value="1">1-简单</a-select-option>
+          <a-select-option :value="2">2-较易</a-select-option>
+          <a-select-option :value="3">3-中等</a-select-option>
+          <a-select-option :value="4">4-较难</a-select-option>
+          <a-select-option :value="5">5-困难</a-select-option>
+        </a-select></a-form-item>
+        <a-form-item label="答题时长(分)"><a-input-number v-model:value="strategyForm.duration" :min="0" style="width:100%" /></a-form-item>
+        <a-divider>6维权重配置（总和必须为100%）</a-divider>
+        <a-form-item v-for="w in strategyWeights" :key="w.key" :label="w.label">
+          <a-slider v-model:value="w.value" :min="0" :max="100" @change="updateWeightSum" />
+          <span style="margin-left:8px;font-weight:bold" :style="{color: weightSum===100?'#52c41a':'#ff4d4f'}">{{ w.value }}%</span>
+        </a-form-item>
+        <a-form-item label="权重总和">
+          <a-progress :percent="weightSum" :status="weightSum===100?'success':'exception'" style="width:200px" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 分享弹窗 -->
+    <a-modal v-model:open="shareVisible" title="试卷分享" @ok="handleShareConfirm" :confirmLoading="shareLoading">
+      <a-form :label-col="{span:8}" :wrapper-col="{span:12}">
+        <a-form-item label="试卷">{{ sharePaperName }}</a-form-item>
+        <a-form-item label="分享方式">
+          <a-radio-group v-model:value="shareMode">
+            <a-radio value="user">指定用户</a-radio>
+            <a-radio value="group">指定班级/组</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item v-if="shareMode==='user'" label="目标用户ID">
+          <a-input-number v-model:value="shareTargetId" :min="1" style="width:100%" placeholder="输入用户ID" />
+        </a-form-item>
+        <a-form-item v-else label="目标组ID">
+          <a-input-number v-model:value="shareTargetId" :min="1" style="width:100%" placeholder="输入班级/组ID" />
+        </a-form-item>
+      </a-form>
+      <a-divider>已分享记录</a-divider>
+      <a-table :columns="shareRecordColumns" :data-source="shareRecords" :loading="shareRecordLoading"
+        row-key="id" size="small" :pagination="false">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key==='action'">
+            <a-button type="link" size="small" danger @click="handleRevokeShare(record.id)">撤销</a-button>
+          </template>
+        </template>
+      </a-table>
+    </a-modal>
+
+    <!-- 分享给我的试卷弹窗 -->
+    <a-modal v-model:open="sharedToMeVisible" title="分享给我的试卷" width="60%" :footer="null">
+      <a-table :columns="sharedToMeColumns" :data-source="sharedToMeList" :loading="sharedToMeLoading"
+        row-key="id" size="small">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key==='action'">
+            <a-button v-if="record.status===1" type="link" size="small" style="color:#52c41a"
+              @click="handleStartExam(record)">考试</a-button>
+          </template>
+        </template>
+      </a-table>
+      <a-empty v-if="!sharedToMeLoading && sharedToMeList.length===0" description="暂无分享给您的试卷" />
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 import {
@@ -428,11 +547,24 @@ import {
   copyExamPaper,
   listExamPaperByPage,
   updateExamPaper,
+  updateStatus1,
   getExamPaperById,
   aiAssemblePaperV2,
   confirmAIAssembly,
   getAIProfile,
-  getAIChatHistory
+  getAIChatHistory,
+  listPaperStrategyByPage,
+  getPaperStrategyById,
+  addPaperStrategy,
+  updatePaperStrategy,
+  deletePaperStrategy,
+  copyPaperStrategy,
+  setDefaultStrategy,
+  sharePaperToUser,
+  sharePaperToGroup,
+  getPaperShares,
+  revokeShare,
+  getSharedToMe
 } from '@/api/shijuanguanli'
 import {
   addQuestionToPaper,
@@ -543,6 +675,7 @@ const formState = reactive({
   paperName: '',
   subject: '',
   totalScore: 100,
+  duration: 90 as number | undefined,
   status: 0
 })
 
@@ -804,6 +937,7 @@ const handleEdit = (record: PaperRecord) => {
   formState.paperName = record.paperName || ''
   formState.subject = record.subject || ''
   formState.totalScore = record.totalScore || 100
+  formState.duration = record.duration
   formState.status = record.status || 0
   modalVisible.value = true
 }
@@ -884,7 +1018,8 @@ const handleModalOk = async () => {
         id: formState.id,
         paperName: formState.paperName,
         subject: formState.subject,
-        totalScore: formState.totalScore
+        totalScore: formState.totalScore,
+        duration: formState.duration
       })
       if (res.data.code === 0) {
         message.success('更新成功')
@@ -898,6 +1033,7 @@ const handleModalOk = async () => {
         paperName: formState.paperName,
         subject: formState.subject,
         totalScore: formState.totalScore,
+        duration: formState.duration,
         status: formState.status
       })
       if (res.data.code === 0) {
@@ -925,6 +1061,7 @@ const resetForm = () => {
   formState.paperName = ''
   formState.subject = ''
   formState.totalScore = 100
+  formState.duration = 90
   formState.status = 0
 }
 
@@ -1176,6 +1313,231 @@ const handleManualAssembly = () => {
   router.push('/paper/assembly')
 }
 
+// ===== 策略管理 =====
+const strategyVisible = ref(false)
+const strategyLoading = ref(false)
+const strategyList = ref<any[]>([])
+const strategyDetailVisible = ref(false)
+const strategyDetailTitle = ref('')
+const strategyDetailLoading = ref(false)
+const strategyEditingId = ref<number | undefined>()
+const strategyForm = reactive({
+  strategyName: '', totalScore: 100, difficultyAvg: 3, duration: 90
+})
+const strategyWeights = reactive([
+  { key: 'difficulty', label: '难度权重', value: 30 },
+  { key: 'accuracy', label: '正确率权重', value: 15 },
+  { key: 'discrimination', label: '区分度权重', value: 20 },
+  { key: 'calcLevel', label: '计算量权重', value: 10 },
+  { key: 'examFrequency', label: '考频权重', value: 10 },
+  { key: 'knowledgeCount', label: '考点关联数权重', value: 15 },
+])
+const weightSum = ref(100)
+const updateWeightSum = () => {
+  weightSum.value = strategyWeights.reduce((s, w) => s + w.value, 0)
+}
+const strategyPagination = reactive({ current: 1, pageSize: 10, total: 0 })
+const strategyColumns = [
+  { title: 'ID', dataIndex: 'id', width: 60 },
+  { title: '名称', dataIndex: 'strategyName' },
+  { title: '总分', dataIndex: 'totalScore', width: 80 },
+  { title: '平均难度', dataIndex: 'difficultyAvg', width: 80 },
+  { title: '权重和', key: 'weightSum', width: 80 },
+  { title: '默认', key: 'isDefault', width: 60 },
+  { title: '操作', key: 'action', width: 280 },
+]
+
+async function loadStrategyList() {
+  strategyLoading.value = true
+  try {
+    const res = await listPaperStrategyByPage({ pageNum: strategyPagination.current, pageSize: strategyPagination.pageSize })
+    if (res.data.code === 0 && res.data.data) {
+      strategyList.value = res.data.data.records || []
+      strategyPagination.total = res.data.data.totalRow || 0
+    }
+  } catch { /* ignore */ }
+  strategyLoading.value = false
+}
+
+function handleStrategyTableChange(pag: { current: number; pageSize: number }) {
+  strategyPagination.current = pag.current; strategyPagination.pageSize = pag.pageSize; loadStrategyList()
+}
+
+function handleStrategyDetail(record: any) {
+  if (!record) { handleStrategyEdit(null); return }
+  strategyDetailTitle.value = '策略详情 - ' + record.strategyName
+  strategyEditingId.value = record.id
+  strategyForm.strategyName = record.strategyName || ''
+  strategyForm.totalScore = record.totalScore || 100
+  strategyForm.difficultyAvg = record.difficultyAvg || 3
+  strategyForm.duration = record.duration || 90
+  if (record.weights?.length) {
+    record.weights.forEach((w: any) => {
+      const found = strategyWeights.find(sw => sw.key === w.weightType)
+      if (found) found.value = w.weightValue || 0
+    })
+  }
+  updateWeightSum()
+  strategyDetailVisible.value = true
+}
+
+function handleStrategyEdit(record: any) {
+  strategyDetailTitle.value = record ? '编辑策略 - ' + record.strategyName : '新建策略'
+  strategyEditingId.value = record?.id
+  if (record) { handleStrategyDetail(record) }
+  else {
+    strategyForm.strategyName = ''; strategyForm.totalScore = 100
+    strategyForm.difficultyAvg = 3; strategyForm.duration = 90
+    strategyWeights.forEach(w => w.value = w.key === 'difficulty' ? 30 : w.key === 'discrimination' ? 20 : w.key === 'accuracy' ? 15 : w.key === 'knowledgeCount' ? 15 : 10)
+    updateWeightSum()
+    strategyDetailVisible.value = true
+  }
+}
+
+async function handleStrategySave() {
+  if (!strategyForm.strategyName) { message.warning('请输入策略名称'); return }
+  if (weightSum.value !== 100) { message.warning('6个指标权重之和必须等于100%，当前为' + weightSum.value + '%'); return }
+  strategyDetailLoading.value = true
+  try {
+    const body: any = { ...strategyForm, weights: strategyWeights.map(w => ({ weightType: w.key, weightValue: w.value })) }
+    let res
+    if (strategyEditingId.value) {
+      body.id = strategyEditingId.value
+      res = await updatePaperStrategy(body)
+    } else {
+      res = await addPaperStrategy(body)
+    }
+    if (res.data.code === 0) { message.success(strategyEditingId.value ? '已更新' : '已创建'); strategyDetailVisible.value = false; loadStrategyList() }
+    else { message.error(res.data.message) }
+  } catch { message.error('请求失败') }
+  strategyDetailLoading.value = false
+}
+
+async function handleStrategyCopy(id: number) {
+  try {
+    const res = await copyPaperStrategy(id)
+    if (res.data.code === 0) { message.success('已复制'); loadStrategyList() }
+    else { message.error(res.data.message) }
+  } catch { message.error('请求失败') }
+}
+
+async function handleStrategySetDefault(id: number) {
+  try {
+    const res = await setDefaultStrategy(id)
+    if (res.data.code === 0) { message.success('已设为默认'); loadStrategyList() }
+    else { message.error(res.data.message) }
+  } catch { message.error('请求失败') }
+}
+
+async function handleStrategyDelete(id: number) {
+  Modal.confirm({
+    title: '确认删除', content: '确定要删除此策略吗？',
+    onOk: async () => {
+      const res = await deletePaperStrategy(id)
+      if (res.data.code === 0) { message.success('已删除'); loadStrategyList() }
+      else { message.error(res.data.message) }
+    }
+  })
+}
+
+// ===== 试卷分享 =====
+const shareVisible = ref(false)
+const shareLoading = ref(false)
+const sharePaperId = ref<number>()
+const sharePaperName = ref('')
+const shareMode = ref<'user'|'group'>('user')
+const shareTargetId = ref<number>()
+const shareRecords = ref<any[]>([])
+const shareRecordLoading = ref(false)
+const shareRecordColumns = [
+  { title: 'ID', dataIndex: 'id', width: 60 },
+  { title: '目标用户ID', dataIndex: 'targetUserId' },
+  { title: '目标组ID', dataIndex: 'targetGroupId' },
+  { title: '时间', dataIndex: 'createTime' },
+  { title: '操作', key: 'action', width: 80 },
+]
+
+async function handleStatusChange(record: PaperRecord, newStatus: number) {
+  if (!record.id) return
+  try {
+    const res = await updateStatus1({ id: record.id, status: newStatus })
+    if (res.data.code === 0) { message.success('状态已更新') }
+    else { message.error(res.data.message || '状态更新失败'); loadPaperList() }
+  } catch { message.error('状态更新请求失败'); loadPaperList() }
+}
+
+function handleShareToUser(record: PaperRecord) {
+  sharePaperId.value = record.id
+  sharePaperName.value = record.paperName || ''
+  shareMode.value = 'user'
+  shareTargetId.value = undefined
+  shareVisible.value = true
+  loadShareRecords()
+}
+
+async function loadShareRecords() {
+  if (!sharePaperId.value) return
+  shareRecordLoading.value = true
+  try {
+    const res = await getPaperShares(sharePaperId.value)
+    if (res.data.code === 0) shareRecords.value = res.data.data || []
+  } catch { /* ignore */ }
+  shareRecordLoading.value = false
+}
+
+async function handleShareConfirm() {
+  if (!shareTargetId.value) { message.warning('请输入目标ID'); return }
+  shareLoading.value = true
+  try {
+    const fn = shareMode.value === 'user' ? sharePaperToUser : sharePaperToGroup
+    const res = await fn(sharePaperId.value!, shareTargetId.value)
+    if (res.data.code === 0) { message.success('分享成功'); loadShareRecords() }
+    else { message.error(res.data.message) }
+  } catch { message.error('请求失败') }
+  shareLoading.value = false
+}
+
+async function handleRevokeShare(shareId: number) {
+  try {
+    const res = await revokeShare(shareId)
+    if (res.data.code === 0) { message.success('已撤销'); loadShareRecords() }
+    else { message.error(res.data.message) }
+  } catch { message.error('请求失败') }
+}
+
+// ===== 分享给我的 =====
+const sharedToMeVisible = ref(false)
+const sharedToMeLoading = ref(false)
+const sharedToMeList = ref<any[]>([])
+const sharedToMeColumns = [
+  { title: '试卷名称', dataIndex: 'paperName' },
+  { title: '分享者ID', dataIndex: 'ownerId' },
+  { title: '分享时间', dataIndex: 'createTime' },
+  { title: '操作', key: 'action', width: 80 },
+]
+
+async function loadSharedToMe() {
+  sharedToMeVisible.value = true
+  sharedToMeLoading.value = true
+  try {
+    const res = await getSharedToMe()
+    if (res.data.code === 0 && res.data.data) {
+      // Enrich with paper info (we need to look up each paper)
+      const enriched: any[] = []
+      for (const share of res.data.data) {
+        try {
+          const pRes = await getExamPaperById({ id: share.paperId! })
+          if (pRes.data.code === 0 && pRes.data.data) {
+            enriched.push({ ...share, ...pRes.data.data })
+          }
+        } catch { /* skip */ }
+      }
+      sharedToMeList.value = enriched
+    }
+  } catch { /* ignore */ }
+  sharedToMeLoading.value = false
+}
+
 // AI组卷相关方法
 const handleAIPaperAssembly = () => { handleAIOpen() }
 
@@ -1188,6 +1550,9 @@ const resetAIForm = () => {
   aiFormState.status = 0
   aiFormState.userRequirement = ''
 }
+
+// Load strategy list when strategyVisible changes
+watch(strategyVisible, (v) => { if (v) loadStrategyList() })
 </script>
 
 <style scoped>

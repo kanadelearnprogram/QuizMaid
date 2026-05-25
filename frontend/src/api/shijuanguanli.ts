@@ -309,7 +309,72 @@ export async function getUnreadNotifications() {
   return request<API.BaseResponseListMapObjectObject>('/notification/unread', { method: 'GET' })
 }
 
+/** 获取所有通知列表 GET /notification/all */
+export async function getAllNotifications(options?: { [key: string]: any }) {
+  return request<API.BaseResponseListMapObjectObject>('/notification/all', {
+    method: 'GET', ...(options || {}),
+  })
+}
 /** 标记通知已读 POST /notification/read/{id} */
 export async function markNotificationRead(id: number) {
   return request<API.BaseResponseBoolean>(`/notification/read/${id}`, { method: 'POST' })
+}
+
+// ===== 组卷策略管理 API =====
+/** 获取策略详情 GET /paperStrategy/get/{id} */
+export async function getPaperStrategyById(id: number, options?: { [key: string]: any }) {
+  return request<API.BaseResponsePaperStrategyVO>(`/paperStrategy/get/${id}`, {
+    method: 'GET', ...(options || {}),
+  })
+}
+/** 更新策略 POST /paperStrategy/update */
+export async function updatePaperStrategy(body: any, options?: { [key: string]: any }) {
+  return request<API.BaseResponseBoolean>('/paperStrategy/update', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, data: body, ...(options || {}),
+  })
+}
+/** 删除策略 POST /paperStrategy/delete */
+export async function deletePaperStrategy(id: number, options?: { [key: string]: any }) {
+  return request<API.BaseResponseBoolean>('/paperStrategy/delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, data: { id }, ...(options || {}),
+  })
+}
+/** 复制策略 POST /paperStrategy/copy/{id} */
+export async function copyPaperStrategy(id: number, options?: { [key: string]: any }) {
+  return request<API.BaseResponsePaperStrategyVO>(`/paperStrategy/copy/${id}`, {
+    method: 'POST', ...(options || {}),
+  })
+}
+/** 设为默认策略 POST /paperStrategy/setDefault/{id} */
+export async function setDefaultStrategy(id: number, options?: { [key: string]: any }) {
+  return request<API.BaseResponseBoolean>(`/paperStrategy/setDefault/${id}`, {
+    method: 'POST', ...(options || {}),
+  })
+}
+
+// ===== 试卷分享管理补充 =====
+/** 分享试卷给指定班级/组 POST /paperShare/group/{paperId}/{targetGroupId} */
+export async function sharePaperToGroup(paperId: number, targetGroupId: number) {
+  return request<API.BaseResponseLong>(`/paperShare/group/${paperId}/${targetGroupId}`, { method: 'POST' })
+}
+/** 获取分享给我的试卷 GET /paperShare/shared-to-me */
+export async function getSharedToMe(options?: { [key: string]: any }) {
+  return request<API.BaseResponseListPaperShare>(`/paperShare/shared-to-me`, {
+    method: 'GET', ...(options || {}),
+  })
+}
+
+// ===== 试卷导出补充 =====
+/** 批量导出试卷 ZIP POST /examPaper/export/batch */
+export async function batchExportPapers(body: { paperIds: number[]; showAnswer?: boolean; showAnalysis?: boolean; templateId?: number }) {
+  return request<Blob>('/examPaper/export/batch', {
+    method: 'POST', responseType: 'blob',
+    headers: { 'Content-Type': 'application/json' }, data: body,
+  })
+}
+/** 下载已导出文件 GET /examPaper/export/download/{fileName} */
+export async function downloadExportFile(fileName: string) {
+  return request<Blob>(`/examPaper/export/download/${encodeURIComponent(fileName)}`, {
+    method: 'GET', responseType: 'blob',
+  })
 }

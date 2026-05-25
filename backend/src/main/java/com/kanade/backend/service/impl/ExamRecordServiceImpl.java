@@ -57,6 +57,11 @@ public class ExamRecordServiceImpl extends ServiceImpl<UserexamrecordMapper, Use
         List<Paperquestion> pqList = paperquestionMapper.selectListByQuery(pqQw);
         if (pqList.isEmpty()) throw new BusinessException(ErrorCode.PARAMS_ERROR, "试卷无题目");
 
+        // 加载题目信息以便获取questionType
+        List<Long> qIds = pqList.stream().map(Paperquestion::getQuestionId).toList();
+        List<Question> qList = questionService.listByIds(qIds);
+        Map<Long, Question> qMap = qList.stream().collect(Collectors.toMap(Question::getId, q -> q));
+
         Userexamrecord record = new Userexamrecord();
         record.setUserId(userId);
         record.setPaperId(paperId);
@@ -72,11 +77,14 @@ public class ExamRecordServiceImpl extends ServiceImpl<UserexamrecordMapper, Use
             detail.setRecordId(record.getId());
             detail.setPaperId(paperId);
             detail.setQuestionId(pq.getQuestionId());
+            Question q = qMap.get(pq.getQuestionId());
+            detail.setQuestionType(q != null ? q.getType() : null);
             detail.setQuestionScore(pq.getQuestionScore());
             detail.setUserAnswer("");
             detail.setActualScore(0);
             detail.setCorrectStatus(0);
             detail.setCreateTime(now);
+            detail.setUpdateTime(now);
             useranswerdetailMapper.insert(detail);
         }
 

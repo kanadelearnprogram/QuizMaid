@@ -969,4 +969,27 @@ declare namespace API {
 
   type BaseResponseListErrorBookNote = { code?: number; data?: ErrorBookNote[]; message?: string }
   type BaseResponseErrorBookNote = { code?: number; data?: ErrorBookNote; message?: string }
+
+  // ===== [2026-05-14 新增] 缺失类型定义 =====
+
+  type ErrorBookGroupItem = {
+    id?: number; groupId?: number; errorBookId?: number; createTime?: string
+  }
+  type BaseResponseListErrorBookGroupItem = { code?: number; data?: ErrorBookGroupItem[]; message?: string }
+
+  type ErrorBookExportLog = {
+    id?: number; userId?: number; exportType?: string; exportStatus?: number; fileName?: string; createTime?: string
+  }
+  type BaseResponseListErrorBookExportLog = { code?: number; data?: ErrorBookExportLog[]; message?: string }
+
+  type ExportTemplate = {
+    id?: number; templateName?: string; userId?: number; exportType?: string; config?: string; isDefault?: number
+  }
+  type BaseResponseExportTemplate = { code?: number; data?: ExportTemplate; message?: string }
+  type BaseResponseListExportTemplate = { code?: number; data?: ExportTemplate[]; message?: string }
+
+  type PaperShare = {
+    id?: number; paperId?: number; ownerId?: number; targetUserId?: number; targetGroupId?: number; createTime?: string
+  }
+  type BaseResponseListPaperShare = { code?: number; data?: PaperShare[]; message?: string }
 }

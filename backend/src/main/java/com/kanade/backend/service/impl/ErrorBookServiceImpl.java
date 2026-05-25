@@ -42,7 +42,7 @@ public class ErrorBookServiceImpl extends ServiceImpl<ErrorBookMapper, ErrorBook
             log.info("[错题同步] 题目已失效，跳过: questionId={}", questionId);
             return;
         }
-        // MD5查重：确保题目存在于题库
+        // MD5查重：检查已有错题记录
         QueryWrapper qw = QueryWrapper.create()
                 .eq("userId", userId).eq("questionId", questionId);
         ErrorBook exist = this.getOne(qw);
@@ -55,19 +55,31 @@ public class ErrorBookServiceImpl extends ServiceImpl<ErrorBookMapper, ErrorBook
             this.updateById(exist);
             cacheService.evictUserCache(userId);
         } else {
-            ErrorBook eb = new ErrorBook();
-            eb.setUserId(userId);
-            eb.setQuestionId(questionId);
-            eb.setErrorType(1);
-            eb.setReviewStatus(0);
-            eb.setErrorCount(1);
-            eb.setFirstErrorTime(LocalDateTime.now());
-            eb.setLastErrorTime(LocalDateTime.now());
-            eb.setIsArchived(0);
-            eb.setCreateTime(LocalDateTime.now());
-            eb.setUpdateTime(LocalDateTime.now());
-            this.save(eb);
-            cacheService.evictUserCache(userId);
+            try {
+                ErrorBook eb = new ErrorBook();
+                eb.setUserId(userId);
+                eb.setQuestionId(questionId);
+                eb.setErrorType(1);
+                eb.setReviewStatus(0);
+                eb.setErrorCount(1);
+                eb.setFirstErrorTime(LocalDateTime.now());
+                eb.setLastErrorTime(LocalDateTime.now());
+                eb.setIsArchived(0);
+                eb.setCreateTime(LocalDateTime.now());
+                eb.setUpdateTime(LocalDateTime.now());
+                this.save(eb);
+                cacheService.evictUserCache(userId);
+            } catch (Exception dupEx) {
+                // 并发插入冲突：其他线程已插入，降级为更新
+                log.warn("[错题同步] 并发冲突，尝试更新: userId={}, questionId={}", userId, questionId);
+                ErrorBook existAgain = this.getOne(qw);
+                if (existAgain != null) {
+                    existAgain.setErrorCount((existAgain.getErrorCount() != null ? existAgain.getErrorCount() : 0) + 1);
+                    existAgain.setLastErrorTime(LocalDateTime.now());
+                    this.updateById(existAgain);
+                    cacheService.evictUserCache(userId);
+                }
+            }
         }
     }
 
@@ -94,9 +106,9 @@ public class ErrorBookServiceImpl extends ServiceImpl<ErrorBookMapper, ErrorBook
 
         String sort = sortBy != null ? sortBy : "lastErrorTime";
         String orderCol;
-        if ("firstErrorTime".equals(sort)) orderCol = "first_error_time";
-        else if ("errorCount".equals(sort)) orderCol = "error_count";
-        else orderCol = "last_error_time";
+        if ("firstErrorTime".equals(sort)) orderCol = "firstErrorTime";
+        else if ("errorCount".equals(sort)) orderCol = "errorCount";
+        else orderCol = "lastErrorTime";
         qw.orderBy(orderCol, false);
 
         return this.page(Page.of(pageNum, pageSize), qw);
