@@ -34,6 +34,14 @@ const routes = [
     component: () => import("@/views/AssemblyView.vue")
   },
   {
+    path: "/paper/strategy",
+    component: () => import("@/views/StrategyManageView.vue")
+  },
+  {
+    path: "/paper/ai-assembly",
+    component: () => import("@/views/AiAssemblyView.vue")
+  },
+  {
     path: "/exam",
     component: () => import("@/views/ExamView.vue")
   },
