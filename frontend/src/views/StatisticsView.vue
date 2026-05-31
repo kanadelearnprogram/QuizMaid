@@ -2,16 +2,11 @@
   <div class="statistics-page">
     <h2 style="margin-bottom: 16px;">成绩统计与可视化</h2>
 
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <StatisticsFilterBar
-        :papers="availablePapers"
-        :loading="loading"
-        @query="handleQuery"
-      />
-      <a-button v-if="stats" @click="handleExportExcel" size="small" type="primary">
-        导出统计Excel
-      </a-button>
-    </div>
+    <StatisticsFilterBar
+      :papers="availablePapers"
+      :loading="loading"
+      @query="handleQuery"
+    />
 
     <a-spin :spinning="loading" style="margin-top: 16px;">
       <template v-if="stats">
@@ -44,7 +39,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { getPaperStatistics, getAvailablePapers, exportStatisticsExcel } from '@/api/tongji'
+import { getPaperStatistics, getAvailablePapers } from '@/api/tongji'
 import StatisticsFilterBar from '@/components/statistics/StatisticsFilterBar.vue'
 import StatisticsOverview from '@/components/statistics/StatisticsOverview.vue'
 import StatisticsDimensionCharts from '@/components/statistics/StatisticsDimensionCharts.vue'
@@ -87,19 +82,6 @@ const handleQuery = async (paperId: number) => {
   } finally {
     loading.value = false
   }
-}
-
-const handleExportExcel = async () => {
-  if (!selectedPaperId.value) return
-  try {
-    const res = await exportStatisticsExcel({ paperId: selectedPaperId.value })
-    const blob = res.data instanceof Blob ? res.data : new Blob([res.data as any])
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = '成绩统计-' + new Date().toISOString().slice(0, 10) + '.xlsx'
-    a.click()
-    message.success('导出成功')
-  } catch { message.error('导出失败') }
 }
 </script>
 

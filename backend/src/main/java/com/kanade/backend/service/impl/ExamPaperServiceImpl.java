@@ -111,10 +111,15 @@ public class ExamPaperServiceImpl extends ServiceImpl<ExamPaperMapper, ExamPaper
         return this.updateById(paper);
     }
 
-    /** 状态切换规则：四种状态自由切换 */
+    /** 状态切换规则：0 草稿 → 1 已发布 → 2 已归档 → 3 已停用 */
     private boolean isValidStatusTransition(int from, int to) {
         if (from == to) return true;
-        if (from >= 0 && from <= 3 && to >= 0 && to <= 3) return true;
+        if (from == 0 && to == 1) return true; // 草稿→已发布
+        if (from == 1 && to == 2) return true; // 已发布→已归档
+        if (from == 2 && to == 3) return true; // 已归档→已停用
+        if (from == 0 && to == 2) return true; // 草稿→已归档
+        if (from == 1 && to == 3) return true; // 已发布→已停用
+        if (from == 2 && to == 1) return true; // 已归档→已发布（重新启用）
         return false;
     }
 

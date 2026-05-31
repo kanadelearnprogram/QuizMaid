@@ -95,26 +95,12 @@ export async function createGroup(groupName: string, description?: string) {
 export async function listGroups() {
   return request<API.BaseResponseListErrorBookGroup>('/error-book/group/list', { method: 'GET' })
 }
-export async function deleteGroup(id: number) {
-  return request<API.BaseResponseBoolean>(`/error-book/group/delete/${id}`, { method: 'POST' })
-}
-export async function getGroupItems(groupId: number) {
-  return request<API.BaseResponseListErrorBookGroupItem>(`/error-book/group/items/${groupId}`, { method: 'GET' })
-}
-export async function removeGroupItem(itemId: number) {
-  return request<API.BaseResponseBoolean>(`/error-book/group/item/remove/${itemId}`, { method: 'POST' })
-}
-export async function batchGroup(ids: number[], groupId: number) {
-  return request<API.BaseResponseInteger>('/error-book/batch/group', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, data: { ids, groupId },
-  })
-}
 
 // ===== 备注 =====
-export async function addNote(errorBookId: number, content: string, noteType?: number, imageUrl?: string) {
+export async function addNote(errorBookId: number, content: string, noteType?: number) {
   return request<API.BaseResponseErrorBookNote>('/error-book/note/add', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    data: { errorBookId, content, noteType: noteType || 1, imageUrl },
+    data: { errorBookId, content, noteType: noteType || 1 },
   })
 }
 export async function listNotes(errorBookId: number) {
@@ -125,19 +111,6 @@ export async function listNotes(errorBookId: number) {
 export async function exportErrorBookExcel() {
   return request<Blob>('/error-book/export/excel', { method: 'POST', responseType: 'blob' })
 }
-export async function exportErrorBookWord() {
-  return request<Blob>('/error-book/export/word', { method: 'POST', responseType: 'blob' })
-}
-export async function exportErrorBookPdf() {
-  return request<Blob>('/error-book/export/pdf', { method: 'POST', responseType: 'blob' })
-}
-export async function batchExportErrorBook(exportType?: string) {
-  return request<Blob>('/error-book/export/batch', {
-    method: 'POST', responseType: 'blob',
-    headers: { 'Content-Type': 'application/json' },
-    data: exportType ? { exportType } : {},
-  })
-}
 export async function previewErrorBook() {
   return request<API.BaseResponseString>('/error-book/export/preview', { method: 'GET' })
 }
@@ -147,17 +120,4 @@ export async function reinforceAssemble(body: { paperName?: string; questionCoun
   return request<API.BaseResponseExamPaperVO>('/error-book/assemble/reinforce', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, data: body,
   })
-}
-
-// ===== 错题分享 =====
-export async function shareErrorBookToTeacher(errorBookId: number) {
-  return request<API.BaseResponseBoolean>(`/error-book/share-to-teacher/${errorBookId}`, { method: 'POST' })
-}
-export async function checkErrorBookShared(errorBookId: number) {
-  return request<API.BaseResponseBoolean>(`/error-book/is-shared-to/${errorBookId}`, { method: 'GET' })
-}
-
-// ===== 导出日志 =====
-export async function getErrorBookExportLogs() {
-  return request<API.BaseResponseListErrorBookExportLog>('/error-book/export/logs', { method: 'GET' })
 }

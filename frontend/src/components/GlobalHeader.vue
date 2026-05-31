@@ -47,10 +47,6 @@
       :footer="null"
       width="500px"
     >
-      <a-radio-group v-model:value="notifTab" button-style="solid" size="small" style="margin-bottom:12px">
-        <a-radio-button value="unread" @click="switchNotifTab('unread')">未读</a-radio-button>
-        <a-radio-button value="all" @click="switchNotifTab('all')">全部</a-radio-button>
-      </a-radio-group>
       <a-list :data-source="notifications" :loading="notifLoading" size="small">
         <template #renderItem="{ item }">
           <a-list-item>
@@ -65,9 +61,6 @@
                 <br/><small>{{ item.createTime }}</small>
               </template>
             </a-list-item-meta>
-            <template #actions>
-              <a-button v-if="item.isRead === 0" type="link" size="small" @click="handleMarkRead(item.id)">已读</a-button>
-            </template>
           </a-list-item>
         </template>
       </a-list>
@@ -83,7 +76,7 @@ import { message } from 'ant-design-vue'
 import { BellOutlined } from '@ant-design/icons-vue'
 import { logout } from '@/api/userController'
 import { useLoginUserStore } from '@/stores/loginUser'
-import { getUnreadNotificationCount, getUnreadNotifications, getAllNotifications, markNotificationRead } from '@/api/shijuanguanli'
+import { getUnreadNotificationCount, getUnreadNotifications } from '@/api/shijuanguanli'
 
 const router = useRouter()
 const route = useRoute()
@@ -93,7 +86,6 @@ const notificationVisible = ref(false)
 const unreadCount = ref(0)
 const notifications = ref<any[]>([])
 const notifLoading = ref(false)
-const notifTab = ref<'unread'|'all'>('unread')
 
 const loadUnreadCount = async () => {
   try {
@@ -107,7 +99,6 @@ const loadUnreadCount = async () => {
 const handleOpenNotifications = async () => {
   notificationVisible.value = true
   notifLoading.value = true
-  notifTab.value = 'unread'
   try {
     const res = await getUnreadNotifications()
     if (res.data.code === 0) {
@@ -115,32 +106,6 @@ const handleOpenNotifications = async () => {
     }
   } catch (e) { /* ignore */ }
   notifLoading.value = false
-}
-
-const switchNotifTab = async (tab: 'unread'|'all') => {
-  notifTab.value = tab
-  notifLoading.value = true
-  try {
-    const fn = tab === 'unread' ? getUnreadNotifications : getAllNotifications
-    const res = await fn()
-    if (res.data.code === 0) notifications.value = res.data.data || []
-  } catch { /* ignore */ }
-  notifLoading.value = false
-}
-
-const handleMarkRead = async (id: number) => {
-  try {
-    const res = await markNotificationRead(id)
-    if (res.data.code === 0) {
-      message.success('已标记已读')
-      loadUnreadCount()
-      // Refresh current tab
-      if (notifTab.value === 'unread') {
-        const r = await getUnreadNotifications()
-        if (r.data.code === 0) notifications.value = r.data.data || []
-      }
-    }
-  } catch { /* ignore */ }
 }
 
 onMounted(() => {

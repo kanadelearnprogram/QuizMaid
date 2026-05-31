@@ -136,7 +136,7 @@
               </template>
             </a-table>
           </a-tab-pane>
-          <a-tab-pane key="history" tab="考试记录" @click="loadPapers">
+          <a-tab-pane key="history" tab="考试记录">
             <a-table :columns="recordColumns" :data-source="examRecords" :loading="loading"
               row-key="recordId" size="small">
               <template #bodyCell="{ column, record }">
@@ -169,7 +169,7 @@
           >
             <template #extra>
               <a-space>
-                <a-button @click="examState = 'select'; result = null; loadPapers()">返回列表</a-button>
+                <a-button @click="examState = 'select'; result = null">返回列表</a-button>
                 <a-button type="primary" @click="handleViewResultDetail">查看详情</a-button>
               </a-space>
             </template>
@@ -295,14 +295,8 @@ watch(multiAnswers, (vals) => {
 
 // ========== Timer ==========
 const hiddenTimestamp = ref<number>(0)
-const hasTimeLimit = computed(() => (remaining.value ?? 0) > 0)
 
 const startTimer = () => {
-  // 如果没有设置时长限制，不启动倒计时
-  if (!hasTimeLimit.value) {
-    remaining.value = 0
-    return
-  }
   timerInterval = setInterval(() => {
     if (remaining.value <= 0) {
       clearInterval(timerInterval)
