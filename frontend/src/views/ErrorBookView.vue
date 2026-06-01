@@ -318,7 +318,8 @@ const handleBatchReview = async (status: number) => {
 }
 
 // ===== 导出/预览 =====
-const previewVisible = ref(false); const previewHtml = ref('')
+const previewVisible = ref(false)
+const previewHtml = ref('')
 /** 剥离预览 HTML 中的 style/body/html 标签，防止污染外层页面样式 */
 function sanitizePreviewHtml(raw: string): string {
   let s = raw
@@ -345,8 +346,11 @@ const handleExportExcel = async () => {
 }
 
 // ===== 强化组卷 =====
-const showAssemblyModal = ref(false); const asmPaperName = ref('错题强化卷')
-const asmQuestionCount = ref(15); const asmDifficulty = ref<number|undefined>(2); const asmDuration = ref(45)
+const showAssemblyModal = ref(false)
+const asmPaperName = ref('错题强化卷')
+const asmQuestionCount = ref(15)
+const asmDifficulty = ref<number|undefined>(2)
+const asmDuration = ref(45)
 const assemblyLoading = ref(false)
 const handleAssembly = async () => {
   if (assemblyLoading.value) return
@@ -391,6 +395,22 @@ onUnmounted(() => { chartInstances.forEach(c=>c.dispose()) })
 .preview-container :deep(.q-title) {
   font-weight: bold;
   margin-bottom: 4px;
+}
+.preview-container :deep(.q-content) {
+  margin: 8px 0;
+}
+.preview-container :deep(.q-answer) {
+  color: #52c41a;
+  margin-top: 4px;
+}
+.preview-container :deep(.q-meta) {
+  color: #999;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.preview-container :deep(h2) {
+  font-size: 18px;
+  margin-bottom: 16px;
 }
 .preview-container :deep(.q-content) {
   margin: 8px 0;
