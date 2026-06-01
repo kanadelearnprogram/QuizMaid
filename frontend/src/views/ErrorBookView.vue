@@ -408,4 +408,30 @@ onUnmounted(() => { chartInstances.forEach(c=>c.dispose()) })
   font-size: 18px;
   margin-bottom: 16px;
 }
+
+// ===== 导出/预览 =====
+const previewVisible = ref(false); const previewHtml = ref('')
+const handlePreview = async () => {
+  try { const res = await previewErrorBook(); if (res.data.code===0) { previewHtml.value=res.data.data||''; previewVisible.value=true } } catch {}
+}
+const handleExportExcel = async () => {
+  try { const res=await exportErrorBookExcel(); const b=new Blob([res.data as any]); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='错题集.csv'; a.click() } catch { message.error('导出失败') }
+}
+
+// ===== 强化组卷 =====
+const showAssemblyModal = ref(false); const asmPaperName = ref('错题强化卷')
+const asmQuestionCount = ref(15); const asmDifficulty = ref<number|undefined>(2); const asmDuration = ref(45)
+const handleAssembly = async () => {
+  try {
+    const res = await reinforceAssemble({ paperName: asmPaperName.value, questionCount: asmQuestionCount.value, difficultyAvg: asmDifficulty.value, duration: asmDuration.value })
+    if (res.data.code === 0) { message.success('组卷成功！试卷ID: '+res.data.data?.id); showAssemblyModal.value=false }
+  } catch { message.error('组卷失败') }
+}
+
+onMounted(() => { loadErrors() })
+onUnmounted(() => { chartInstances.forEach(c=>c.dispose()) })
+</script>
+
+<style scoped>
+.error-book-page { padding: 0; }
 </style>
