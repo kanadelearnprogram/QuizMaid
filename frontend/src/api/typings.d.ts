@@ -514,6 +514,18 @@ declare namespace API {
     weightValue?: number
   }
 
+  type PaperStrategyUpdateDTO = {
+    id?: number
+    strategyName?: string
+    totalScore?: number
+    difficultyAvg?: number
+    duration?: number
+    questionTypeConfig?: string
+    difficultyConfig?: string
+    knowledgePointScope?: string
+    weights?: StrategyWeightDTO[]
+  }
+
   type PaperStrategyVO = {
     id?: number
     strategyName?: string
@@ -619,6 +631,9 @@ declare namespace API {
   }
 
   type AIAssemblyStrategyVO = {
+    strategyId?: number
+    strategyDescription?: string
+    stageDetail?: string
     difficultyAvg?: number
     difficultyConfig?: { level?: number; ratio?: number }[]
     questionTypeConfig?: { type?: number; count?: number; score?: number }[]
